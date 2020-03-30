@@ -150,6 +150,7 @@ def visualize(
     # finalize the plot
     plt.ylabel(xlabel)
     plt.xlabel(ylabel)
+    #^ ???
     plt.ylim(Nx, -1)
     plt.xlim(-1, Ny)
     plt.figlegend()

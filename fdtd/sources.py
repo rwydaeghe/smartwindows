@@ -140,14 +140,12 @@ class LineSource:
     def update_E(self):
         """ Add the source to the electric field """
         q = self.grid.time_steps_passed
-        vect = self.profile * sin(2 * pi * q / self.period + self.phase_shift)
+        vect = self.profile        
         # do not use list indexing here, as this is much slower especially for torch backend
         # DISABLED: self.grid.E[self.x, self.y, 2] = self.vect
         # TO DO IS HET OOK ECHT TRAGER
-        #t=time.time()
         for x, y, value in zip(self.x, self.y, vect):
-            self.grid.E[x, y, self.polarization] += value
-        #print(time.time()-t)
+            self.grid.E[x, y, self.polarization] = value
 
     def update_H(self):
         """ Add the source to the magnetic field """

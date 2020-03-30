@@ -13,6 +13,8 @@ from typing import Tuple, List, Callable
 from numbers import Number
 
 import numpy as np
+from scipy import sparse
+from scipy.sparse.linalg import spsolve
 import matplotlib.pyplot as plt
 
 ## Constants
@@ -96,10 +98,9 @@ class Grid:
     def __init__(
         self,
         shape: Tuple[float, float],
-        spacing_functions: Tuple[Callable, Callable],
+        grid_spacing: float = 1e-6,
         permittivity: float = 1.0,
         permeability: float = 1.0,
-        conductivity: float = 0.0,
         courant_number: float = None,
     ):
         """
@@ -113,22 +114,18 @@ class Grid:
                 dimensions > 1 (optimal value). The timestep of the simulation
                 will be derived from this number using the CFL-condition.
         """
-        # create non-uniform grid
-        self.x_spacing_function, self.y_spacing_function = spacing_functions
-        self.coords, self.dx, self.dy = self.build_non_uniform_grid(shape)
-        self.xcoords, self.ycoords = self.coords
-        self.Nx, self.Ny = len(self.xcoords), len(self.ycoords)
         
-        #create dual grid
-        self.dx_dual = np.zeros(self.dx.shape)
-        self.dy_dual = np.zeros(self.dy.shape)
+        self.grid_spacing = float(grid_spacing)
+        self.Nx, self.Ny = self._handle_tuple(shape)
+        self.V, self.F = self.meshRectangle() #similar to CSWP
         
-        self.dx_dual[:-1]=(self.dx[1:] + self.dx[:-1])/2
-        self.dy_dual[:-1]=(self.dy[1:] + self.dy[:-1])/2
+        self.K = self.assemble()
         
-        self.dx_dual=np.insert(self.dx_dual,0,self.dx_dual[0])[:-1]
-        self.dy_dual=np.insert(self.dy_dual,0,self.dy_dual[0])[:-1]
+        self.BC=np.zeros((self.V.shape[0],))
+        self.BC[0:26]=np.ones((26,))*self.grid_spacing**2
+        self.BC[390:]=2*np.ones((26,))*self.grid_spacing**2
         
+        print(self.K.shape,spsolve(self.K,self.BC))
         # courant number of the simulation (optimal value)
         if courant_number is None:
             # slight stability factor added
@@ -140,19 +137,7 @@ class Grid:
         else:
             self.courant_number = float(courant_number)
         
-        # timestep of the simulation
-        # in non-uniform Yee formalism, time step is chosen based on smallest grid spacing
-        self.smallest_grid_spacing = np.min(np.concatenate([self.dx,self.dy]))
-        self.dt = self.courant_number * self.smallest_grid_spacing / SPEED_LIGHT
-        print(self.dt)
-
-        #make 2D meshes from 1D data
-        #self.dx=self.cartesian_product(self.dx,self.dx)
-        #self.dy=self.cartesian_product(self.dy,self.dy)
-        #self.dx_dual=self.cartesian_product(self.dx_dual,self.dx_dual)
-        #self.dy_dual=self.cartesian_product(self.dy_dual,self.dy_dual)
-        self.dx, self.dy = np.meshgrid(self.dx,self.dy,indexing='ij')
-        self.dx_dual, self.dy_dual = np.meshgrid(self.dx_dual,self.dy_dual,indexing='ij')
+        self.dt = self.courant_number * self.grid_spacing / SPEED_LIGHT
         
         # save electric and magnetic field
         self.E = np.zeros((self.Nx, self.Ny, 3))
@@ -161,14 +146,9 @@ class Grid:
         # save the material properties
         self.permittivity = np.zeros((self.Nx, self.Ny, 3))
         self.permeability = np.zeros((self.Nx, self.Ny, 3))
-        self.conductivity = np.zeros((self.Nx, self.Ny, 3))
         
-        self.s_e = np.zeros((self.Nx-1, self.Ny-1, 3))   
-        self.c_e = np.zeros((self.Nx-1, self.Ny-1, 3))   
-        self.c_h = np.zeros((self.Nx-1, self.Ny-1, 3))   
-
         # set material properties
-        self._set_material_properties((permittivity, permeability, conductivity))
+        self._set_material_properties((permittivity, permeability))
         
         # save current time index
         self.time_steps_passed = 0
@@ -185,20 +165,16 @@ class Grid:
         # dictionary containing the objects in the grid
         self.objects = []
 
-    def _handle_distance(self, distance: Number, dimension: str) -> int:
+    def _handle_distance(self, distance: Number) -> int:
         """ transform a distance to an integer number of gridpoints """
-        if dimension=="x":
-            if not isinstance(distance, int):
-                return np.searchsorted(self.xcoords, distance, 'right')-1
-        if dimension=="y":
-            if not isinstance(distance, int):
-                return np.searchsorted(self.ycoords, distance, 'right')-1    
+        if not isinstance(distance, int):
+            return int(float(distance) / self.grid_spacing + 0.5)
         return distance
 
     def _handle_time(self, time: Number) -> int:
         """ transform a time value to an integer number of timesteps """
         if not isinstance(time, int):
-            return int(round(float(time) / self.dt))
+            return int(round(float(time) / self.dt + 0.5))
         return time
 
     def _handle_tuple(
@@ -210,42 +186,43 @@ class Grid:
                 f"invalid grid shape {shape}\n"
                 f"grid shape should be a 2D tuple containing floats or ints"
             )
-        x = self._handle_distance(shape[0],"x")
-        y = self._handle_distance(shape[1],"y")
+        x, y = shape
+        x = self._handle_distance(x)
+        y = self._handle_distance(y)
         return x, y
 
-    def _handle_slice(self, s: slice, dimension: str) -> slice:
+    def _handle_slice(self, s: slice) -> slice:
         """ validate the slice and transform possibly float values to ints """
         start = (
-            s.start if not isinstance(s.start, float) else self._handle_distance(s.start, dimension)
+            s.start if not isinstance(s.start, float) else self._handle_distance(s.start)
         )
         stop = (
-            s.stop if not isinstance(s.stop, float) else self._handle_distance(s.stop, dimension)
+            s.stop if not isinstance(s.stop, float) else self._handle_distance(s.stop)
         )
         step = (
-            s.step if not isinstance(s.step, float) else self._handle_distance(s.step, dimension)
+            s.step if not isinstance(s.step, float) else self._handle_distance(s.step)
         )
         return slice(start, stop, step)
 
-    def _handle_single_key(self, key, dimension: str):
+    def _handle_single_key(self, key):
         """ transform a single index key to a slice or list """
         try:
             len(key)
-            return [self._handle_distance(k, dimension) for k in key]
+            return [self._handle_distance(k) for k in key]
         except TypeError:
             if isinstance(key, slice):
-                return self._handle_slice(key, dimension)
+                return self._handle_slice(key)
             else:
-                return [self._handle_distance(key, dimension)]
+                return [self._handle_distance(key)]
         return key
         
     @property
     def x(self) -> int:
-        return self.xcoords[-1]
+        return self.Nx * self.grid_spacing
 
     @property
     def y(self) -> int:
-        return self.ycoords[-1]
+        return self.Ny * self.grid_spacing
 
     @property
     def shape(self) -> Tuple[int, int]:
@@ -257,22 +234,6 @@ class Grid:
         """ get the total time passed """
         return self.time_steps_passed * self.dt
 
-    def build_non_uniform_grid(self, shape):
-        xcoords = np.array([0]); ycoords = np.array([0])
-        dx = []; dy = []
-        
-        while xcoords[-1] < shape[0]:
-            dx.append(self.x_spacing_function(xcoords[-1]))
-            xcoords=np.append(xcoords, xcoords[-1]+dx[-1])
-
-        while ycoords[-1] < shape[1]:
-            dy.append(self.y_spacing_function(ycoords[-1]))
-            ycoords=np.append(ycoords, ycoords[-1]+dy[-1])
-            
-        #to do: round floating point imprecisions
-        dx, dy = np.array(dx), np.array(dy)
-        return ((xcoords, ycoords), dx, dy)
-    
     def cartesian_product(self, *arrays):
         la = len(arrays)
         dtype = np.result_type(*arrays)
@@ -280,6 +241,39 @@ class Grid:
         for i, a in enumerate(np.ix_(*arrays)):
             arr[...,i] = a
         return arr
+
+    def meshRectangle(self):
+        #create vertices
+        x = np.linspace(0,self.x,self.Nx+1)
+        y = np.linspace(0,self.y,self.Ny+1)
+        X,Y=np.meshgrid(x,y)
+        V=np.transpose(np.vstack([X.ravel(), Y.ravel()]))
+        
+        #create faces based on index of V. Left to right, then down to up
+        x_counter=np.linspace(0,self.Nx-1,self.Nx)
+        xy_counter=(self.Nx+1)*np.linspace(0,self.Ny-1,self.Ny)
+        face_counter=np.array([0,1,self.Nx+2,self.Nx+1]) #anti clock-wise
+        bottom_left=(x_counter + np.transpose(np.array([xy_counter,]*self.Nx))).ravel()
+        F=(face_counter + np.transpose(np.array([bottom_left,]*face_counter.size))).astype(int)
+        
+        return V, F
+    
+    def assemble(self):
+        #local stiffness matrix
+        e=self.grid_spacing**2
+        k=np.zeros((16,self.F.shape[0]))
+        k[[0,5,10,15],:]=4*e
+        k[[1,3,6,11],:]=-e
+        k[[2,7],:]=-2*e
+        k[[4,8,9,12,13,14],:]=k[[1,2,6,3,7,11],:]
+        k=np.transpose(k)
+        
+        #assemble
+        I=self.F[:,[0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3]]
+        J=self.F[:,[0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3]]
+        K=sparse.coo_matrix((k.ravel(),(I.ravel(),J.ravel())),shape=(self.V.shape[0],self.V.shape[0]))
+        
+        return K.tocsr()
         
     def run(self, total_time: Number, progress_bar: bool = False, animate: bool = False):
         """ run an FDTD simulation.
@@ -394,7 +388,7 @@ class Grid:
         self.objects[name] = obj
         
     def _set_material_properties(self, materialproperties: tuple = (1.0,1.0,0.0), positions: tuple = None):
-        permittivity, permeability, conductivity = materialproperties
+        permittivity, permeability = materialproperties
           
         if positions != None:
             x, y = positions
@@ -404,28 +398,9 @@ class Grid:
             Nx, Ny = self.Nx, self.Ny
                   
         # save the yee-fdtd coefficients (not defined for the last points)
-        permittivity = np.ones((Nx, Ny, 3)) * float(permittivity)
-        permeability = np.ones((Nx, Ny, 3)) * float(permeability)
-        conductivity = np.ones((Nx, Ny, 3)) * float(conductivity)
-        
-        denom = permittivity[:-1,:-1]/self.dt+conductivity[:-1,:-1]/2
-        
-        """
-        self.s_e = (permittivity[:-1,:-1]/self.dt-conductivity[:-1,:-1]/2)/denom
-        
-        print(denom.shape)
-        self.c_e[x,y,0] = self.dx[x,y]/self.dy_dual[x,y]/denom[:,:,0]
-        self.c_e[x,y,1] = self.dy[x,y]/self.dx_dual[x,y]/denom[:,:,1]
-        self.c_e[x,y,2] = 1/(self.dx_dual[x,y]*self.dy_dual[x,y]*denom[:,:,2])
-        
-        self.c_h[x,y,0] = -self.dx_dual[x,y]/self.dy[x,y]*self.dt/permeability[:-1,:-1,0]
-        self.c_h[x,y,1] = -self.dy_dual[x,y]/self.dx[x,y]*self.dt/permeability[:-1,:-1,1]
-        self.c_h[x,y,2] = -1/(self.dx_dual[x,y]*self.dy_dual[x,y])*self.dt/permeability[:-1,:-1,2]
-        """
-        
-        self.permittivity[x, y] = permittivity
-        self.permeability[x, y] = permeability
-        self.conductivity[x, y] = conductivity
+        ones=np.ones((Nx, Ny, 3))        
+        self.permittivity[x, y] = ones * float(permittivity)
+        self.permeability[x, y] = ones * float(permeability)
             
     def __setitem__(self, key, attr):
         if not isinstance(key, tuple):
@@ -439,8 +414,8 @@ class Grid:
         
         attr._register_grid(
             grid=self,
-            x=self._handle_single_key(x,"x"),
-            y=self._handle_single_key(y,"y")            
+            x=self._handle_single_key(x),
+            y=self._handle_single_key(y)            
         )
 
     def __repr__(self):

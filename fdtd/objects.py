@@ -23,13 +23,12 @@ import numpy as np
 class Object:
     """ An object to place in the grid """
 
-    def __init__(self, permittivity: float, permeability: float, conductivity: float, name: str = None):
+    def __init__(self, permittivity: float, permeability: float, name: str = None):
         """ Create an object """
         self.grid = None
         self.name = name
         self.permittivity = permittivity
         self.permeability = permeability
-        self.conductivity = conductivity
 
     def _register_grid(
         self, grid: Grid, x: ListOrSlice, y: ListOrSlice
@@ -56,7 +55,7 @@ class Object:
         self.Nx = abs(self.x.stop - self.x.start)
         self.Ny = abs(self.y.stop - self.y.start)
 
-        self.grid._set_material_properties((self.permittivity, self.permeability, self.conductivity), positions=(x,y))        
+        self.grid._set_material_properties((self.permittivity, self.permeability), positions=(x,y))        
         # set the permittivity values of the object at its border to be equal
         # to the grid permittivity. This way, the object is made symmetric.
         # no idea what this is. so delete for clutter
