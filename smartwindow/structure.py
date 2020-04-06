@@ -87,19 +87,37 @@ class Structure:
         # verandering van potentialen op de elektroden.
         #self.E=
         
-        with open('Variables/voltages.pkl','rb') as f:
-            V1, V2, V3, V4 = pickle.load(f)
+#        with open('Variables/voltages.pkl','rb') as f:
+#            V1, V2, V3, V4 = pickle.load(f)
         with open('Variables/triangulation.pkl','rb') as f:
             triang_V = pickle.load(f)    
-        V = V1 + V2 + V3 + V4
-        tci = LinearTriInterpolator(triang_V,-V)                                # faster interpolator, but not as accurate                             
-#        tci = CubicTriInterpolator(triang_V, -V)                              
-        (Ex, Ey) = tci.gradient(triang_V.x,triang_V.y)
-#        with open('Variables/electric_field.pkl','rb') as f:                   # eventueel werken met opgeslagen velden
-#            E1, E2, E3, E4 = pickle.load(f)
-        self.E = np.array([Ex,Ey])
+#        V = V1 + V2 + V3 + V4
+#        tci = LinearTriInterpolator(triang_V,-V)                                # faster interpolator, but not as accurate                             
+##        tci = CubicTriInterpolator(triang_V, -V)                              
+#        (Ex, Ey) = tci.gradient(triang_V.x,triang_V.y)
+#        self.E = np.array([Ex,Ey])
+        trifinder = triang_V.get_trifinder()
+        with open('Variables/electric_field.pkl','rb') as f:                    # eventueel werken met opgeslagen velden
+            E1, E2, E3, E4 = pickle.load(f)
+        self.E = E1 + E2 + E3 + E4
+        
         
         print("update fields")
+#        for particle in self.particles:
+#            tr = trifinder(particle.pos[0], particle.pos[1])                    # triangle where particle is
+#            i = triang_V.triangles[tr]                                          # index of vertices
+#            v0 = np.array([triang_V.x[i[0]],triang_V.y[i[0]]])                  # position of vertex 1
+#            v1 = np.array([triang_V.x[i[1]],triang_V.y[i[1]]])
+#            v2 = np.array([triang_V.x[i[2]],triang_V.y[i[2]]])
+#            norm = np.array([np.linalg.norm(v0),np.linalg.norm(v1),np.linalg.norm(v2)])
+#            j = np.argmin(norm)
+#            v = i[j]
+#            Ex = np.array(self.E[0])
+#            Ey = np.array(self.E[1])
+#            E = np.array([Ex[v], Ey[v]])
+#            force  = particle.charge*E
+#            particle.forces['electrostatic']=force
+        
         for particle in self.particles:
             force=np.array([random.uniform(-1,1),random.uniform(-1,1)])*5e-15
             particle.forces['electrostatic']=force
