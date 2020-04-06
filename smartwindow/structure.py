@@ -4,9 +4,11 @@ from numbers import Number
 from operator import attrgetter
 from scipy.sparse import *
 import matplotlib.pyplot as plt
+from matplotlib.tri import Triangulation, CubicTriInterpolator, LinearTriInterpolator
 import random
 import numpy as np
 import time
+import pickle
 
 #floating point machine precision
 eps = np.finfo(float).eps 
@@ -14,8 +16,7 @@ eps = np.finfo(float).eps
 class Structure:
     def __init__(self,
                  shape: Tuple[float, float] = (16e-5, 5e-5),
-                 grid_spacing: float = 1e-6
-                 ):
+                 grid_spacing: float = 1e-6):
         self.grid_spacing = float(grid_spacing)
         self.Nx, self.Ny = self._handle_tuple(shape)
         self.time_steps_passed = 0
@@ -26,8 +27,8 @@ class Structure:
         self.courant=0.7
         self.dt = self.courant*self.grid_spacing/part_speed
         
-        self.add_gaussian_particle_cloud(N=100)        
-        
+        self.add_gaussian_particle_cloud(N=100)
+            
     def add_particle(self, particle):
         particle._register_structure(self)
         self.particles.append(particle)
@@ -85,6 +86,19 @@ class Structure:
         # @Hanne zet hier elektrostatica code die geupdate moet worden bij elke
         # verandering van potentialen op de elektroden.
         #self.E=
+        
+        with open('Variables/voltages.pkl','rb') as f:
+            V1, V2, V3, V4 = pickle.load(f)
+        with open('Variables/triangulation.pkl','rb') as f:
+            triang_V = pickle.load(f)    
+        V = V1 + V2 + V3 + V4
+        tci = LinearTriInterpolator(triang_V,-V)                                # faster interpolator, but not as accurate                             
+#        tci = CubicTriInterpolator(triang_V, -V)                              
+        (Ex, Ey) = tci.gradient(triang_V.x,triang_V.y)
+#        with open('Variables/electric_field.pkl','rb') as f:                   # eventueel werken met opgeslagen velden
+#            E1, E2, E3, E4 = pickle.load(f)
+        self.E = np.array([Ex,Ey])
+        
         print("update fields")
         for particle in self.particles:
             force=np.array([random.uniform(-1,1),random.uniform(-1,1)])*5e-15
