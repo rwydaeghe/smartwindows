@@ -24,9 +24,12 @@ class Structure:
         self.density=750
         part_speed=5e-5
         self.courant=0.7
-        self.dt = self.courant*self.grid_spacing/part_speed
+        #self.dt = self.courant*self.grid_spacing/part_speed
+        self.dt=5e-9
         
-        self.add_gaussian_particle_cloud(N=100)        
+        self.add_gaussian_particle_cloud(N=50)        
+        #self.add_particle(Particle(pos = np.array(self.size)*0.5, charge = 50, r = 5e-7))
+        #self.add_particle(Particle(pos = np.array(self.size)*0.4, charge = 50, r = 5e-7))
         
     def add_particle(self, particle):
         particle._register_structure(self)
@@ -76,7 +79,6 @@ class Structure:
                 self.keep_contained()
             if animate:
                 self.visualize()
-                #plt.pause(0.001)
         if not animate:
             self.visualize()
         plt.ioff()            
@@ -86,9 +88,11 @@ class Structure:
         # verandering van potentialen op de elektroden.
         #self.E=
         print("update fields")
+        """
         for particle in self.particles:
             force=np.array([random.uniform(-1,1),random.uniform(-1,1)])*5e-15
             particle.forces['electrostatic']=force
+        """
         
     def update_forces(self):
         #coulomb force
@@ -97,7 +101,7 @@ class Structure:
                 r=p2.pos-p1.pos
                 vec_r=r/np.linalg.norm(r)
                 force=2.307e-28*p1.charge*p2.charge/r**2*vec_r
-                #force*=20
+                #force*=2
                 p1.forces["coulomb"]=force
                 p2.forces["coulomb"]=-force
                 
@@ -200,6 +204,7 @@ class Structure:
         plt.ticklabel_format(style='sci', scilimits=(0,0))
         plt.gca().set_aspect('equal', adjustable='box')
         plt.tight_layout()
+        plt.pause(.1)
         plt.show()
             
 
