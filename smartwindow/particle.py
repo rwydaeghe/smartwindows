@@ -44,15 +44,16 @@ class Particle:
     
     def collide(self, wall: str):
         if wall=='left':
+            #perio RVW
             self.pos[0]=self.structure.x-self.r*1.1
         if wall=='right':
             self.pos[0]=self.r*1.1
+            #perio RVW
         if wall=='bottom':
             self.pos[1]=self.r*1.1
             #elastisch
             self.vel[1]*=-1
         if wall=='top':
-            print('t')
             self.pos[1]=self.structure.y-self.r*1.1
             #elastisch
             self.vel[1]*=-1

@@ -76,7 +76,7 @@ class Structure:
                 self.keep_contained()
             if animate:
                 self.visualize()
-                plt.pause(0.01)
+                #plt.pause(0.001)
         if not animate:
             self.visualize()
         plt.ioff()            
@@ -110,16 +110,12 @@ class Structure:
     def keep_contained(self):
         for i, _ in zip(self.particles_left.col, self.particles_left.data):
             self.particles[i].collide(wall='left')
-            #self.particles_left[i]=False
         for i, _ in zip(self.particles_right.col, self.particles_right.data):
             self.particles[i].collide(wall='right')
-            #self.particles_right[i]=False
         for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
             self.particles[i].collide(wall='bottom')
-            #self.particles_bottom[i]=False
         for i, _ in zip(self.particles_top.col, self.particles_top.data):
             self.particles[i].collide(wall='top')
-            #self.particles_top[i]=False
             
     def contains(self, particle_list: List):
         """ Not only does this method return True if all particles are in 
