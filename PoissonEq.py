@@ -9,8 +9,12 @@ Created on Sat Mar 28 19:36:58 2020
 
 from dolfin import *
 import time
+import matplotlib.pyplot as plt
+from matplotlib.tri import Triangulation, CubicTriInterpolator
+import numpy as np
+import pickle
 
-t = time.clock()
+#t1 = time.clock()
 
 # Classes for different electrodes
 class E1(SubDomain):
@@ -60,16 +64,58 @@ v = TestFunction(V)
 f = Constant(0.0)
 
 # Define Dirichlet boundary conditions for the four electrodes
-bcs = [DirichletBC(V, 1.0e-5, e1), DirichletBC(V, 1.0e-5, e2), DirichletBC(V, 1.0e-5, e3), DirichletBC(V, 1.0e-5, e4),]
+def DirBoundary(v1=0, v2=0, v3=0, v4=0):
+    bcs = [DirichletBC(V, v1, e1), DirichletBC(V, v2, e2), DirichletBC(V, v3, e3), DirichletBC(V, v4, e4),]
+    return bcs
 
 a = dot(grad(u), grad(v))*dx
 L = f*v*dx
 
 # Compute solution
-u = Function(V)
-solve(a == L, u, bcs)
-print(time.clock()-t)
+u1 = Function(V)
+u2 = Function(V)
+u3 = Function(V)
+u4 = Function(V)
+solve(a == L, u1, DirBoundary(v1=1))
+solve(a == L, u2, DirBoundary(v2=1))
+solve(a == L, u3, DirBoundary(v3=1))
+solve(a == L, u4, DirBoundary(v4=1))
+
+#print(time.clock()-t1)
 
 # Plot solution
-c = plot(u)
+c = plot(u1+u2+u3+u4)
 plt.colorbar(c)
+
+
+# storing solution as arrays
+mesh = u1.function_space().mesh()
+z1 = u1.compute_vertex_values(mesh)
+z2 = u2.compute_vertex_values(mesh)
+z3 = u3.compute_vertex_values(mesh)
+z4 = u4.compute_vertex_values(mesh)
+x = mesh.coordinates()[:,0]
+y = mesh.coordinates()[:,1]
+t = mesh.cells()
+
+# making triangulation
+triang = Triangulation(x,y,t)
+
+# computing gradient
+#tci1 = CubicTriInterpolator(triang, -z1)
+#tci2 = CubicTriInterpolator(triang, -z2)
+#tci3 = CubicTriInterpolator(triang, -z3)
+#tci4 = CubicTriInterpolator(triang, -z4)
+#(Ex1, Ey1) = tci1.gradient(x,y)
+#(Ex2, Ey2) = tci2.gradient(x,y)
+#(Ex3, Ey3) = tci3.gradient(x,y)
+#(Ex4, Ey4) = tci4.gradient(x,y)
+
+
+# saving variables as pickle file
+#with open ('Variables/voltages.pkl','wb') as f:
+#    pickle.dump([z1,z2,z3,z4],f)
+#    
+#with open ('Variables/triangulation.pkl','wb') as f:
+#    pickle.dump(triang,f)
+    

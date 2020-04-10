@@ -4,9 +4,11 @@ from numbers import Number
 from operator import attrgetter
 from scipy.sparse import *
 import matplotlib.pyplot as plt
+from matplotlib.tri import Triangulation, CubicTriInterpolator, LinearTriInterpolator
 import random
 import numpy as np
 import time
+import pickle
 
 #floating point machine precision
 eps = np.finfo(float).eps 
@@ -14,8 +16,7 @@ eps = np.finfo(float).eps
 class Structure:
     def __init__(self,
                  shape: Tuple[float, float] = (16e-5, 5e-5),
-                 grid_spacing: float = 1e-6
-                 ):
+                 grid_spacing: float = 1e-6):
         self.grid_spacing = float(grid_spacing)
         self.Nx, self.Ny = self._handle_tuple(shape)
         self.time_steps_passed = 0
@@ -30,7 +31,7 @@ class Structure:
         self.add_gaussian_particle_cloud(N=50)        
         #self.add_particle(Particle(pos = np.array(self.size)*0.5, charge = 50, r = 5e-7))
         #self.add_particle(Particle(pos = np.array(self.size)*0.4, charge = 50, r = 5e-7))
-        
+            
     def add_particle(self, particle):
         particle._register_structure(self)
         self.particles.append(particle)
@@ -79,6 +80,7 @@ class Structure:
                 self.keep_contained()
             if animate:
                 self.visualize()
+                plt.pause(0.01)
         if not animate:
             self.visualize()
         plt.ioff()            
@@ -87,8 +89,38 @@ class Structure:
         # @Hanne zet hier elektrostatica code die geupdate moet worden bij elke
         # verandering van potentialen op de elektroden.
         #self.E=
+        
+#        with open('Variables/voltages.pkl','rb') as f:
+#            V1, V2, V3, V4 = pickle.load(f)
+        with open('Variables/triangulation.pkl','rb') as f:
+            triang_V = pickle.load(f)    
+#        V = V1 + V2 + V3 + V4
+#        tci = LinearTriInterpolator(triang_V,-V)                                # faster interpolator, but not as accurate                             
+##        tci = CubicTriInterpolator(triang_V, -V)                              
+#        (Ex, Ey) = tci.gradient(triang_V.x,triang_V.y)
+#        self.E = np.array([Ex,Ey])
+        trifinder = triang_V.get_trifinder()
+        with open('Variables/electric_field.pkl','rb') as f:                    # eventueel werken met opgeslagen velden
+            E1, E2, E3, E4 = pickle.load(f)
+        self.E = E1 + E2 + E3 + E4
+        
+        
         print("update fields")
-        """
+#        for particle in self.particles:
+#            tr = trifinder(particle.pos[0], particle.pos[1])                    # triangle where particle is
+#            i = triang_V.triangles[tr]                                          # index of vertices
+#            v0 = np.array([triang_V.x[i[0]],triang_V.y[i[0]]])                  # position of vertex 1
+#            v1 = np.array([triang_V.x[i[1]],triang_V.y[i[1]]])
+#            v2 = np.array([triang_V.x[i[2]],triang_V.y[i[2]]])
+#            norm = np.array([np.linalg.norm(v0),np.linalg.norm(v1),np.linalg.norm(v2)])
+#            j = np.argmin(norm)
+#            v = i[j]
+#            Ex = np.array(self.E[0])
+#            Ey = np.array(self.E[1])
+#            E = np.array([Ex[v], Ey[v]])
+#            force  = particle.charge*E
+#            particle.forces['electrostatic']=force
+        
         for particle in self.particles:
             force=np.array([random.uniform(-1,1),random.uniform(-1,1)])*5e-15
             particle.forces['electrostatic']=force
@@ -114,12 +146,16 @@ class Structure:
     def keep_contained(self):
         for i, _ in zip(self.particles_left.col, self.particles_left.data):
             self.particles[i].collide(wall='left')
+            #self.particles_left[i]=False
         for i, _ in zip(self.particles_right.col, self.particles_right.data):
             self.particles[i].collide(wall='right')
+            #self.particles_right[i]=False
         for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
             self.particles[i].collide(wall='bottom')
+            #self.particles_bottom[i]=False
         for i, _ in zip(self.particles_top.col, self.particles_top.data):
             self.particles[i].collide(wall='top')
+            #self.particles_top[i]=False
             
     def contains(self, particle_list: List):
         """ Not only does this method return True if all particles are in 
