@@ -14,7 +14,6 @@ plt.close('all')
 
 structure = Structure((16e-5, 5e-5))
 
-
 #print(structure.is_in(structure.get_particles_attr(pos),structure.get_particles_attr(r)))
 #print(structure.get_particles_attr('r'))
 
