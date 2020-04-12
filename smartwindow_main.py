@@ -13,7 +13,7 @@ import numpy as np
 plt.close('all')
 
 print('initializing')
-structure = Structure((16e-5, 5e-5))
+structure = Structure((20e-5, 5e-5))
 
 print('adding particles')
 structure.add_gaussian_particle_cloud(N=50)        
