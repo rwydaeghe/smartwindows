@@ -15,7 +15,7 @@ eps = np.finfo(float).eps
 
 class Structure:
     def __init__(self,
-                 shape: Tuple[float, float] = (20e-5, 5e-5),
+                 shape: Tuple[float, float] = (16e-5, 5e-5),
                  grid_spacing: float = 1e-6):
         self.grid_spacing = float(grid_spacing)
         self.Nx, self.Ny = self._handle_tuple(shape)
@@ -25,9 +25,13 @@ class Structure:
         self.density=750
         part_speed=5e-5
         self.courant=0.7
-#        self.dt = self.courant*self.grid_spacing/part_speed
-        self.dt=1e-2
+        #self.dt = self.courant*self.grid_spacing/part_speed
+        self.dt=5e-9
         
+        self.add_gaussian_particle_cloud(N=50)        
+        #self.add_particle(Particle(pos = np.array(self.size)*0.5, charge = 50, r = 5e-7))
+        #self.add_particle(Particle(pos = np.array(self.size)*0.4, charge = 50, r = 5e-7))
+            
     def add_particle(self, particle):
         particle._register_structure(self)
         self.particles.append(particle)
@@ -65,12 +69,12 @@ class Structure:
             total_time /= self.dt
         time = range(0, int(total_time), 1)
             
-        plt.figure('Simulation')
+        plt.figure()
         plt.ion()            
         for t in time:
-            #if t%200==0:
-            #    self.update_fields(x1=2)
-            #self.update_forces()
+            if t%10==0:
+                self.update_fields()
+            self.update_forces()
             self.update_particles()
             if not self.contains(self.particles):
                 self.keep_contained()
@@ -79,40 +83,48 @@ class Structure:
                 plt.pause(0.01)
         if not animate:
             self.visualize()
-        #plt.ioff()            
+        plt.ioff()            
     
-    def update_fields(self, x1 : float = 1.0, x2 : float = 0.0, x3 : float = 0.0, x4 : float = 0.0):
-        with open('Variables/voltages.pkl','rb') as f:
-            V1, V2, V3, V4 = pickle.load(f)
+    def update_fields(self):
+        # @Hanne zet hier elektrostatica code die geupdate moet worden bij elke
+        # verandering van potentialen op de elektroden.
+        #self.E=
+        
+#        with open('Variables/voltages.pkl','rb') as f:
+#            V1, V2, V3, V4 = pickle.load(f)
         with open('Variables/triangulation.pkl','rb') as f:
             triang_V = pickle.load(f)    
-        V = x1*V1 + x2*V2 + x3*V3 + x4*V4
-        tci = LinearTriInterpolator(triang_V,-V)                                # faster interpolator, but not as accurate                             
-#        tci = CubicTriInterpolator(triang_V, -V)                              
-        (Ex, Ey) = tci.gradient(triang_V.x,triang_V.y)
-        self.E = np.array([Ex,Ey])
+#        V = V1 + V2 + V3 + V4
+#        tci = LinearTriInterpolator(triang_V,-V)                                # faster interpolator, but not as accurate                             
+##        tci = CubicTriInterpolator(triang_V, -V)                              
+#        (Ex, Ey) = tci.gradient(triang_V.x,triang_V.y)
+#        self.E = np.array([Ex,Ey])
         trifinder = triang_V.get_trifinder()
         with open('Variables/electric_field.pkl','rb') as f:                    # eventueel werken met opgeslagen velden
-            self.E = pickle.load(f)
+            E1, E2, E3, E4 = pickle.load(f)
+        self.E = E1 + E2 + E3 + E4
         
-        print(self.E)
         
         print("update fields")
+#        for particle in self.particles:
+#            tr = trifinder(particle.pos[0], particle.pos[1])                    # triangle where particle is
+#            i = triang_V.triangles[tr]                                          # index of vertices
+#            v0 = np.array([triang_V.x[i[0]],triang_V.y[i[0]]])                  # position of vertex 1
+#            v1 = np.array([triang_V.x[i[1]],triang_V.y[i[1]]])
+#            v2 = np.array([triang_V.x[i[2]],triang_V.y[i[2]]])
+#            norm = np.array([np.linalg.norm(v0),np.linalg.norm(v1),np.linalg.norm(v2)])
+#            j = np.argmin(norm)
+#            v = i[j]
+#            Ex = np.array(self.E[0])
+#            Ey = np.array(self.E[1])
+#            E = np.array([Ex[v], Ey[v]])
+#            force  = particle.charge*E
+#            particle.forces['electrostatic']=force
+        
         for particle in self.particles:
-            tr = trifinder(particle.pos[0], particle.pos[1])                    # triangle where particle is
-            i = triang_V.triangles[tr]                                          # indices of vertices
-            v0 = np.array([triang_V.x[i[0]],triang_V.y[i[0]]])                  # position of vertex 1
-            v1 = np.array([triang_V.x[i[1]],triang_V.y[i[1]]])
-            v2 = np.array([triang_V.x[i[2]],triang_V.y[i[2]]])
-            norm = np.array([np.linalg.norm(v0),np.linalg.norm(v1),np.linalg.norm(v2)])
-            j = np.argmin(norm)                                                 # nearest vertex        
-            v = i[j]
-            Ex = np.array(self.E[0])
-            Ey = np.array(self.E[1])
-            E = np.array([Ex[v], Ey[v]])
-            force  = particle.charge*1.602e-19*E
+            force=np.array([random.uniform(-1,1),random.uniform(-1,1)])*5e-15
             particle.forces['electrostatic']=force
-    
+        """
         
     def update_forces(self):
         #coulomb force
@@ -165,6 +177,8 @@ class Structure:
             self.particles_right.nnz != 0 &
             self.particles_bottom.nnz != 0 &
             self.particles_top.nnz != 0):
+            
+            print(self.particles_left, self.particles_right, self.particles_bottom, self.particles_top)
             return True
     
     def _handle_distance(self, distance: Number) -> int:
@@ -187,9 +201,10 @@ class Structure:
         y = self._handle_distance(y)
         return x, y
         
-    #for debugging
+    """ deprecated
     def get_particles_attr(self, attr: Tuple) -> np.ndarray:
         return np.array(list(map(attrgetter(*attr), self.particles)))
+    """
     
     @property
     def x(self) -> int:

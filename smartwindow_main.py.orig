@@ -12,8 +12,12 @@ import numpy as np
 
 plt.close('all')
 
+<<<<<<< HEAD
 print('initializing')
 structure = Structure((16e-5, 5e-5))
+=======
+structure = Structure((20e-5, 5e-5))
+>>>>>>> 6b104668a313a8b3a2dd2c740d1ba3b74afb1891
 
 print('adding particles')
 structure.add_gaussian_particle_cloud(N=50)        
@@ -23,6 +27,6 @@ structure.add_gaussian_particle_cloud(N=50)
 #print(structure.get_particles_attr('r'))
 
 print('start fields')
-structure.update_fields(x1=2)
+structure.update_fields()
 
 structure.run(100)
