@@ -12,26 +12,35 @@ import numpy as np
 import pickle
 
 
-with open('smartwindows/Variables/voltages.pkl','rb') as f:
+with open('Variables/voltages.pkl','rb') as f:
     V1, V2, V3, V4 = pickle.load(f)
-with open('smartwindows/Variables/triangulation.pkl','rb') as f:
+with open('Variables/triangulation.pkl','rb') as f:
     triang_V = pickle.load(f)    
 x = triang_V.x
 y = triang_V.y
-tci1 = CubicTriInterpolator(triang_V, -V1)
-tci2 = CubicTriInterpolator(triang_V, -V2)
-tci3 = CubicTriInterpolator(triang_V, -V3)
-tci4 = CubicTriInterpolator(triang_V, -V4)
-(Ex1, Ey1) = tci1.gradient(x,y)
-(Ex2, Ey2) = tci2.gradient(x,y)
-(Ex3, Ey3) = tci3.gradient(x,y)
-(Ex4, Ey4) = tci4.gradient(x,y)
+#tci1 = CubicTriInterpolator(triang_V, -V1)
+#tci2 = CubicTriInterpolator(triang_V, -V2)
+#tci3 = CubicTriInterpolator(triang_V, -V3)
+#tci4 = CubicTriInterpolator(triang_V, -V4)
+#(Ex1, Ey1) = tci1.gradient(x,y)
+#(Ex2, Ey2) = tci2.gradient(x,y)
+#(Ex3, Ey3) = tci3.gradient(x,y)
+#(Ex4, Ey4) = tci4.gradient(x,y)
 
+V = V1 + V2 + V3 + V4
 
-E1 = [Ex1,Ey1]
-E2 = [Ex2,Ey2]
-E3 = [Ex3,Ey3]
-E4 = [Ex4,Ey4]
+tci = CubicTriInterpolator(triang_V, -V)
+(Ex, Ey) = tci.gradient(x,y)
+
+E = np.array([Ex,Ey])
+
+with open ('Variables/electric_field.pkl','wb') as f:
+    pickle.dump(E,f)
+
+#E1 = [Ex1,Ey1]
+#E2 = [Ex2,Ey2]
+#E3 = [Ex3,Ey3]
+#E4 = [Ex4,Ey4]
 
 # Plot triangulation, potential and vector field
 #fig, ax = plt.subplots()

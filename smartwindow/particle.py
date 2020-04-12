@@ -33,7 +33,7 @@ class Particle:
     def _register_structure(self, structure):
         self.structure = structure
         self.stokes_coeff = 6*np.pi*self.structure.viscosity*self.r
-        print(self.m/self.stokes_coeff)
+#        print(self.m/self.stokes_coeff)
         
     def update_force(self):
         self.force=np.array([0.0,0.0])
@@ -46,7 +46,7 @@ class Particle:
         
         self.acc=self.force/self.m
         self.vel+=self.acc*self.structure.dt
-        print(self.vel*self.structure.dt)
+#        print(self.vel*self.structure.dt)
         self.pos+=self.vel*self.structure.dt
     
     def collide(self, wall: str):
