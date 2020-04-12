@@ -33,21 +33,21 @@ E2 = [Ex2,Ey2]
 E3 = [Ex3,Ey3]
 E4 = [Ex4,Ey4]
 
-# Plot triangulation, potential and vector field
-#fig, ax = plt.subplots()
-#ax.set_aspect('equal')
-## Enforce the margins, and enlarge them to give room for the vectors.
-#ax.use_sticky_edges = False
-#ax.margins(0.07)
-#
-##ax.triplot(triang_V, color='0.8')
-#
-##levels = np.arange(0., 1., 0.01)
-#cmap = cm.get_cmap(name='hot', lut=None)
-#ax.tricontour(x, y, V, cmap=cmap)
-## Plots direction of the electrical vector field
-#ax.quiver(x_n, y_n, Ex_n/E_n, Ey_n/E_n,units='xy',
-#          width=0.007e-5, headwidth=3e-5, headlength=4e-5)
-#
-#ax.set_title('Gradient plot')
-#plt.show()
+#Plot triangulation, potential and vector field
+fig, ax = plt.subplots()
+ax.set_aspect('equal')
+# Enforce the margins, and enlarge them to give room for the vectors.
+ax.use_sticky_edges = False
+ax.margins(0.07)
+
+#ax.triplot(triang_V, color='0.8')
+
+#levels = np.arange(0., 1., 0.01)
+cmap = cm.get_cmap(name='hot', lut=None)
+ax.tricontour(x, y, V, cmap=cmap)
+# Plots direction of the electrical vector field
+ax.quiver(x_n, y_n, Ex_n/E_n, Ey_n/E_n,units='xy',
+          width=0.007e-5, headwidth=3e-5, headlength=4e-5)
+
+ax.set_title('Gradient plot')
+plt.show()

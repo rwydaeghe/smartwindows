@@ -44,9 +44,9 @@ class Particle:
     def update(self):
         self.update_force()
         
-        self.acc=self.force/self.m
-        self.vel+=self.acc*self.structure.dt
-        print(self.vel*self.structure.dt)
+        #self.acc=self.force/self.m
+        #self.vel+=self.acc*self.structure.dt
+        self.vel=self.forces['electrostatic']/self.stokes_coeff
         self.pos+=self.vel*self.structure.dt
     
     def collide(self, wall: str):
