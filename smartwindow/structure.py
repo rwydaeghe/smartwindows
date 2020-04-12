@@ -92,8 +92,8 @@ class Structure:
         (Ex, Ey) = tci.gradient(triang_V.x,triang_V.y)
         self.E = np.array([Ex,Ey])
         trifinder = triang_V.get_trifinder()
-        with open('Variables/electric_field.pkl','rb') as f:                    # eventueel werken met opgeslagen velden
-            self.E = pickle.load(f)
+#        with open('Variables/electric_field.pkl','rb') as f:                    # eventueel werken met opgeslagen velden
+#            self.E = pickle.load(f)
         
         print(self.E)
         
