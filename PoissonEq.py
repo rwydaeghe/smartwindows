@@ -19,19 +19,19 @@ import pickle
 # Classes for different electrodes
 class E1(SubDomain):
   def inside(self, x, on_boundary):
-    return (near(x[1], 0.0) and between(x[0], (0.0,4.0e-5)))
+    return (near(x[1], 0.0) and between(x[0], (0.0,5.0e-5)))
 
 class E2(SubDomain):
   def inside(self, x, on_boundary):
-    return (near(x[1], 0.0) and between(x[0], (8.0e-5,12.0e-5))) 
+    return (near(x[1], 0.0) and between(x[0], (10.0e-5,15.0e-5))) 
 
 class E3(SubDomain):
   def inside(self, x, on_boundary):
-    return (near(x[1], 5.0e-5) and between(x[0], (4.0e-5,8.0e-5)))
+    return (near(x[1], 5.0e-5) and between(x[0], (5.0e-5,10.0e-5)))
 
 class E4(SubDomain):
   def inside(self, x, on_boundary):
-    return (near(x[1], 5.0e-5) and between(x[0], (12.0e-5,16.0e-5)))
+    return (near(x[1], 5.0e-5) and between(x[0], (15.0e-5,20.0e-5)))
 
 # Initialize sub-domain instances
 e1 = E1()
@@ -48,7 +48,7 @@ class PeriodicBoundary(SubDomain):
 
     # Map right boundary to left boundary 
     def map(self, x, y):
-        y[0] = x[0] - 16.0e-5
+        y[0] = x[0] - 20.0e-5
         y[1] = x[1]
 
 # Create periodic boundary condition
@@ -56,8 +56,8 @@ pbc = PeriodicBoundary()
 
 # Create mesh and finite element
 p0 = Point(0.0,0)
-p1 = Point(16.0e-5,5.0e-5)
-mesh = RectangleMesh(p0,p1,1600,500)
+p1 = Point(20.0e-5,5.0e-5)
+mesh = RectangleMesh(p0,p1,2000,500)
 V = FunctionSpace(mesh, "CG", 1, constrained_domain=pbc)
 u = TrialFunction(V)
 v = TestFunction(V)
@@ -84,7 +84,7 @@ solve(a == L, u4, DirBoundary(v4=1))
 #print(time.clock()-t1)
 
 # Plot solution
-c = plot(u1+u2+u3+u4)
+c = plot(u1)
 plt.colorbar(c)
 
 
