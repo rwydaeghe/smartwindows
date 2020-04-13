@@ -26,7 +26,9 @@ class Structure:
         part_speed=5e-5
         self.courant=0.7
 #        self.dt = self.courant*self.grid_spacing/part_speed
-        self.dt=1e-2
+        self.dt=1e-1
+        self.electrode_cycle=200 #please be a multiple of 4
+        self.period=0
         
     def add_particle(self, particle):
         particle._register_structure(self)
@@ -68,9 +70,16 @@ class Structure:
         plt.figure('Simulation')
         plt.ion()            
         for t in time:
-            #if t%200==0:
-            #    self.update_fields(x1=2)
-            #self.update_forces()
+            if t%self.electrode_cycle==self.electrode_cycle/4*0:
+                self.update_fields(x1=1)
+            if t%self.electrode_cycle==self.electrode_cycle/4*1:
+                self.update_fields(x3=1)
+            if t%self.electrode_cycle==self.electrode_cycle/4*2:
+                self.update_fields(x2=1)
+            if t%self.electrode_cycle==self.electrode_cycle/4*3:
+                self.update_fields(x4=1)  
+            self.period=t//self.electrode_cycle
+            self.update_forces()
             self.update_particles()
             if not self.contains(self.particles):
                 self.keep_contained()
@@ -79,40 +88,24 @@ class Structure:
                 plt.pause(0.01)
         if not animate:
             self.visualize()
-        #plt.ioff()            
-    
-    def update_fields(self, x1 : float = 1.0, x2 : float = 0.0, x3 : float = 0.0, x4 : float = 0.0):
+        plt.ioff()      
+        
+    def load_fields(self):
+        print('loading fields')
         with open('Variables/voltages.pkl','rb') as f:
-            V1, V2, V3, V4 = pickle.load(f)
+            self.V1, self.V2, self.V3, self.V4 = pickle.load(f)
         with open('Variables/triangulation.pkl','rb') as f:
-            triang_V = pickle.load(f)    
-        V = x1*V1 + x2*V2 + x3*V3 + x4*V4
-        tci = LinearTriInterpolator(triang_V,-V)                                # faster interpolator, but not as accurate                             
-#        tci = CubicTriInterpolator(triang_V, -V)                              
-        (Ex, Ey) = tci.gradient(triang_V.x,triang_V.y)
-        self.E = np.array([Ex,Ey])
-        trifinder = triang_V.get_trifinder()
+            self.triang_V = pickle.load(f) 
+            self.trifinder = self.triang_V.get_trifinder()
+    
+    def update_fields(self, x1 : float = 0.0, x2 : float = 0.0, x3 : float = 0.0, x4 : float = 0.0):
+        V = x1*self.V1 + x2*self.V2 + x3*self.V3 + x4*self.V4
+        tci = LinearTriInterpolator(self.triang_V,-V)                                # faster interpolator, but not as accurate                             
+#        tci = CubicTriInterpolator(self.triang_V, -V)                              
+        (Ex, Ey) = tci.gradient(self.triang_V.x,self.triang_V.y)
+        self.E = np.array([Ex,Ey])        
 #        with open('Variables/electric_field.pkl','rb') as f:                    # eventueel werken met opgeslagen velden
 #            self.E = pickle.load(f)
-        
-        print(self.E)
-        
-        print("update fields")
-        for particle in self.particles:
-            tr = trifinder(particle.pos[0], particle.pos[1])                    # triangle where particle is
-            i = triang_V.triangles[tr]                                          # indices of vertices
-            v0 = np.array([triang_V.x[i[0]],triang_V.y[i[0]]])                  # position of vertex 1
-            v1 = np.array([triang_V.x[i[1]],triang_V.y[i[1]]])
-            v2 = np.array([triang_V.x[i[2]],triang_V.y[i[2]]])
-            norm = np.array([np.linalg.norm(v0),np.linalg.norm(v1),np.linalg.norm(v2)])
-            j = np.argmin(norm)                                                 # nearest vertex        
-            v = i[j]
-            Ex = np.array(self.E[0])
-            Ey = np.array(self.E[1])
-            E = np.array([Ex[v], Ey[v]])
-            force  = particle.charge*1.602e-19*E
-            particle.forces['electrostatic']=force
-    
         
     def update_forces(self):
         #coulomb force
@@ -124,6 +117,22 @@ class Structure:
                 #force*=2
                 p1.forces["coulomb"]=force
                 p2.forces["coulomb"]=-force
+        
+        #electrostatic force
+        for particle in self.particles:
+            tr = self.trifinder(*particle.pos)                    # triangle where particle is
+            i = self.triang_V.triangles[tr]                                          # indices of vertices
+            v0 = np.array([self.triang_V.x[i[0]],self.triang_V.y[i[0]]])                  # position of vertex 1
+            v1 = np.array([self.triang_V.x[i[1]],self.triang_V.y[i[1]]])
+            v2 = np.array([self.triang_V.x[i[2]],self.triang_V.y[i[2]]])
+            norm = np.array([np.linalg.norm(v0),np.linalg.norm(v1),np.linalg.norm(v2)])
+            j = np.argmin(norm)                                                 # nearest vertex        
+            v = i[j]
+            Ex = np.array(self.E[0])
+            Ey = np.array(self.E[1])
+            E = np.array([Ex[v], Ey[v]])
+            force  = -particle.charge*1.602e-19*E
+            particle.forces['electrostatic']=force
                 
     def update_particles(self):
         for particle in self.particles:
@@ -188,8 +197,8 @@ class Structure:
         return x, y
         
     #for debugging
-    def get_particles_attr(self, attr: Tuple) -> np.ndarray:
-        return np.array(list(map(attrgetter(*attr), self.particles)))
+    def get_particles_attr(self, attr: str) -> np.ndarray:
+        return np.array(list(map(attrgetter(attr), self.particles)))
     
     @property
     def x(self) -> int:

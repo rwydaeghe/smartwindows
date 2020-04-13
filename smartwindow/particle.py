@@ -15,6 +15,7 @@ class Particle:
         self.structure = None
         
         self.pos = np.array(pos)
+        self.structure_period=0
         self.vel = np.array(vel)
         self.acc = np.array(acc)
         self.charge=charge
@@ -26,9 +27,9 @@ class Particle:
         
         self.force = self.m*self.acc
         self.forces = {'electrostatic': np.array([0.0,0.0]), 
-                       'coulomb': np.array([0.0,0.0]), 
-                       'stokes': np.array([0.0,0.0]), 
-                       'collision': np.array([0.0,0.0])}
+                       'coulomb':       np.array([0.0,0.0]), 
+                       'stokes':        np.array([0.0,0.0]), 
+                       'collision':     np.array([0.0,0.0])}
         
     def _register_structure(self, structure):
         self.structure = structure
@@ -48,22 +49,25 @@ class Particle:
         #self.vel+=self.acc*self.structure.dt
         self.vel=self.forces['electrostatic']/self.stokes_coeff
         self.pos+=self.vel*self.structure.dt
+        
+        if self.structure_period!=self.structure.period:
+            self.color='b'
     
     def collide(self, wall: str):
         if wall=='left':
             #perio RVW
             self.pos[0]=self.structure.x-self.r*1.1
+            self.structure_period -= 1
         if wall=='right':
-            self.pos[0]=self.r*1.1
             #perio RVW
+            self.pos[0]=self.r*1.1            
+            self.structure_period += 1
         if wall=='bottom':
-            self.pos[1]=self.r*1.1
-            #elastisch
-            self.vel[1]*=-1
+            self.pos[1]=self.r*1.1            
+            self.vel[1]*=-1 #elastisch
         if wall=='top':
             self.pos[1]=self.structure.y-self.r*1.1
-            #elastisch
-            self.vel[1]*=-1
+            self.vel[1]*=-1 #elastisch
         
     def visualize(self):
         plt.gca().add_artist(plt.Circle(self.pos, self.r, color=self.color))
