@@ -57,7 +57,7 @@ pbc = PeriodicBoundary()
 # Create mesh and finite element
 p0 = Point(0.0,0)
 p1 = Point(20.0e-5,5.0e-5)
-mesh = RectangleMesh(p0,p1,2000,500)
+mesh = RectangleMesh(p0,p1,200,50)
 V = FunctionSpace(mesh, "CG", 1, constrained_domain=pbc)
 u = TrialFunction(V)
 v = TestFunction(V)
@@ -113,9 +113,9 @@ triang = Triangulation(x,y,t)
 
 
 # saving variables as pickle file
-#with open ('Variables/voltages.pkl','wb') as f:
-#    pickle.dump([z1,z2,z3,z4],f)
-#    
-#with open ('Variables/triangulation.pkl','wb') as f:
-#    pickle.dump(triang,f)
+with open ('Variables/voltages_small.pkl','wb') as f:
+    pickle.dump([z1,z2,z3,z4],f)
+    
+with open ('Variables/triangulation_small.pkl','wb') as f:
+    pickle.dump(triang,f)
     

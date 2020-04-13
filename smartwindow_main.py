@@ -23,6 +23,6 @@ structure.add_gaussian_particle_cloud(N=50)
 #print(structure.get_particles_attr('r'))
 
 print('start fields')
-structure.update_fields(x1=2)
+structure.update_fields(x3=5,x4=5)
 
 structure.run(100)
