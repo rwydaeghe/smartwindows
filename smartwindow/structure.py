@@ -8,27 +8,31 @@ from matplotlib.tri import Triangulation, CubicTriInterpolator, LinearTriInterpo
 import random
 import numpy as np
 import time
+from tqdm import tqdm
 import pickle
 
-#floating point machine precision
+#constants
 eps = np.finfo(float).eps 
+k_e = 8.987e9
+e   = 1.602e-19
 
 class Structure:
     def __init__(self,
                  shape: Tuple[float, float] = (20e-5, 5e-5),
                  grid_spacing: float = 1e-6):
-        self.grid_spacing = float(grid_spacing)
-        self.Nx, self.Ny = self._handle_tuple(shape)
-        self.time_steps_passed = 0
+        self.x, self.y = shape
         self.particles = []
         self.viscosity=1.344e-3
         self.density=750
         part_speed=5e-5
         self.courant=0.7
 #        self.dt = self.courant*self.grid_spacing/part_speed
+        self.time_steps_passed=0
         self.dt=1e-1
+        
         self.electrode_cycle=200 #please be a multiple of 4
         self.period=0
+        self.electrode_config='initialising...'
         
     def add_particle(self, particle):
         particle._register_structure(self)
@@ -63,26 +67,19 @@ class Structure:
                  )
     
     def run(self, total_time: Number, animate: bool = True):
-        if isinstance(total_time, float):
-            total_time /= self.dt
-        time = range(0, int(total_time), 1)
+        total_time = self._handle_time(total_time)
+        time = range(0, total_time, 1)
             
         plt.figure('Simulation')
+        plt.get_current_fig_manager().window.showMaximized()
         plt.ion()            
-        for t in time:
-            if t%self.electrode_cycle==self.electrode_cycle/4*0:
-                self.update_fields(x1=1)
-            if t%self.electrode_cycle==self.electrode_cycle/4*1:
-                self.update_fields(x3=1)
-            if t%self.electrode_cycle==self.electrode_cycle/4*2:
-                self.update_fields(x2=1)
-            if t%self.electrode_cycle==self.electrode_cycle/4*3:
-                self.update_fields(x4=1)  
-            self.period=t//self.electrode_cycle
+        for _ in tqdm(time):
+            self.update_electrodes()            
             self.update_forces()
             self.update_particles()
             if not self.contains(self.particles):
                 self.keep_contained()
+            self.time_steps_passed+=1
             if animate:
                 self.visualize()
                 plt.pause(0.01)
@@ -92,12 +89,12 @@ class Structure:
         
     def load_fields(self):
         print('loading fields')
-        with open('Variables/voltages.pkl','rb') as f:
+        with open('Variables/voltages_small.pkl','rb') as f:
             self.V1, self.V2, self.V3, self.V4 = pickle.load(f)
-        with open('Variables/triangulation.pkl','rb') as f:
+        with open('Variables/triangulation_small.pkl','rb') as f:
             self.triang_V = pickle.load(f) 
             self.trifinder = self.triang_V.get_trifinder()
-    
+
     def update_fields(self, x1 : float = 0.0, x2 : float = 0.0, x3 : float = 0.0, x4 : float = 0.0):
         V = x1*self.V1 + x2*self.V2 + x3*self.V3 + x4*self.V4
         tci = LinearTriInterpolator(self.triang_V,-V)                                # faster interpolator, but not as accurate                             
@@ -106,17 +103,39 @@ class Structure:
         self.E = np.array([Ex,Ey])        
 #        with open('Variables/electric_field.pkl','rb') as f:                    # eventueel werken met opgeslagen velden
 #            self.E = pickle.load(f)
+            
+    def update_electrodes(self):
+        t=self.time_steps_passed
+        t_c=self.electrode_cycle
+        
+        if t%t_c==t_c/4*0:
+            self.electrode_config='bottom left'
+            self.update_fields(x1=1)
+        if t%t_c==t_c/4*1:
+            self.electrode_config='top middle'
+            self.update_fields(x3=1)
+        if t%t_c==t_c/4*2:
+            self.electrode_config='bottom middle'
+            self.update_fields(x2=1)
+        if t%t_c==t_c/4*3:
+            self.electrode_config='top right'
+            self.update_fields(x4=1)
+            
+        self.period=t//t_c   
         
     def update_forces(self):
         #coulomb force
+        cst=k_e*e**2
         for i,p1 in enumerate(self.particles):
             for _,p2 in enumerate(self.particles[i+1:]):
-                r=p2.pos-p1.pos
-                vec_r=r/np.linalg.norm(r)
-                force=2.307e-28*p1.charge*p2.charge/r**2*vec_r
-                #force*=2
-                p1.forces["coulomb"]=force
-                p2.forces["coulomb"]=-force
+                r=p2.real_pos-p1.real_pos
+                norm_r=np.linalg.norm(r)
+                if norm_r<(p1.r+p2.r):
+                    self.collide_particles(p1, p2, r, norm_r)
+                else:
+                    force=cst*p1.charge*p2.charge/norm_r**3*r                    
+                    p1.forces['coulomb']=-force
+                    p2.forces['coulomb']=force
         
         #electrostatic force
         for particle in self.particles:
@@ -130,30 +149,35 @@ class Structure:
             v = i[j]
             Ex = np.array(self.E[0])
             Ey = np.array(self.E[1])
-            E = np.array([Ex[v], Ey[v]])
-            force  = -particle.charge*1.602e-19*E
+            force  = -particle.charge*1.602e-19*np.array([Ex[v], Ey[v]])
             particle.forces['electrostatic']=force
+        
+        print('coul', self.particles[0].forces['coulomb'])
+        print('elec', self.particles[0].forces['electrostatic'])
+
                 
     def update_particles(self):
         for particle in self.particles:
-            particle.update()
-        #print(self.particles[0].forces, self.particles[0].force)
-        self.time_steps_passed += 1
-    
+            particle.update_force()
+            particle.update_pos()
+
+    def collide_particles(self, p1, p2, r12, norm_r):
+        #elastic collision
+        v12=p2.vel-p1.vel
+        val=2/(p1.m+p2.m)*np.dot(v12,r12)/norm_r**2*r12
+        p1.vel+=p2.m*val
+        p2.vel-=p1.m*val      
+        
     def keep_contained(self):
         for i, _ in zip(self.particles_left.col, self.particles_left.data):
             self.particles[i].collide(wall='left')
-            #self.particles_left[i]=False
         for i, _ in zip(self.particles_right.col, self.particles_right.data):
             self.particles[i].collide(wall='right')
-            #self.particles_right[i]=False
         for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
             self.particles[i].collide(wall='bottom')
-            #self.particles_bottom[i]=False
         for i, _ in zip(self.particles_top.col, self.particles_top.data):
             self.particles[i].collide(wall='top')
-            #self.particles_top[i]=False
-            
+                        
     def contains(self, particle_list: List):
         """ Not only does this method return True if all particles are in 
         structure, it also updates lists of escaped particles by facet. Will 
@@ -163,7 +187,6 @@ class Structure:
         for i, particle in enumerate(particle_list):
             x[i], y[i] = particle.pos
             r[i] = particle.r
-        
         
         self.particles_left = coo_matrix(x - r < 0 + eps)
         self.particles_right = coo_matrix(x + r > self.x - eps)
@@ -175,65 +198,43 @@ class Structure:
             self.particles_bottom.nnz != 0 &
             self.particles_top.nnz != 0):
             return True
-    
-    def _handle_distance(self, distance: Number) -> int:
-        """ transform a distance to an integer number of gridpoints """
-        if not isinstance(distance, int):
-            return int(float(distance) / self.grid_spacing + 0.5)
-        return distance    
-        
-    def _handle_tuple(
-        self, shape: Tuple[Number, Number]
-    ) -> Tuple[int, int]:
-        """ validate the grid shape and transform to a length-2 tuple of ints """
-        if len(shape) != 2:
-            raise ValueError(
-                f"invalid grid shape {shape}\n"
-                f"grid shape should be a 2D tuple containing floats or ints"
-            )
-        x, y = shape
-        x = self._handle_distance(x)
-        y = self._handle_distance(y)
-        return x, y
         
     #for debugging
     def get_particles_attr(self, attr: str) -> np.ndarray:
         return np.array(list(map(attrgetter(attr), self.particles)))
     
-    @property
-    def x(self) -> int:
-        return self.Nx * self.grid_spacing
-
-    @property
-    def y(self) -> int:
-        return self.Ny * self.grid_spacing
-
-    @property
-    def size(self) -> Tuple[int, int]:
-        """ get the size of the FDTD grid, in meters """
-        return (self.x, self.y)
-    
-    @property
-    def shape(self) -> Tuple[int, int]:
-        """ get the shape of the FDTD grid, in cells """
-        return (self.Nx, self.Ny)
-            
-    @property
-    def time_passed(self) -> float:
-        """ get the total time passed """
-        return self.time_steps_passed * self.dt
+    def _handle_time(self, t):
+        if isinstance(t, float):
+            return int(t/self.dt)
+        return t
     
     def visualize(self):
         plt.clf()
         for particle in self.particles:
             particle.visualize()
-        plt.xlabel('x')
-        plt.ylabel('y')
+        plt.xlabel('$x \/ \/ [m]$')
+        plt.ylabel('$y \/ \/ [m]$')
         plt.xlim(0, self.x)
         plt.ylim(0, self.y)
+        plt.title('Looking at period ' + str(self.period) + ' of structure. \n'
+                  + 'Electrode configuration: only ' + self.electrode_config)
         plt.ticklabel_format(style='sci', scilimits=(0,0))
         plt.gca().set_aspect('equal', adjustable='box')
-        plt.tight_layout()
+        plt.legend(
+            (plt.Circle((0,0), radius=5,color='b'),
+             plt.Circle((0,0), radius=5,color='r'),
+             plt.Circle((0,0), radius=5,color='g')
+            ),
+            ('Lagging behind period',
+             'In current period',
+             'Ahead of period',
+             ), 
+            loc=(0,-0.3))
+            #bbox_to_anchor=(0,-0.8,1,0.2),
+            #mode="expand",
+            #ncol=3,
+            #loc="lower center")
+        #plt.tight_layout()
         plt.pause(.1)
         plt.show()
             
