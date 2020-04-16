@@ -27,6 +27,8 @@ class Particle:
         self.m=self.density*self.volume
         self.color=c
         
+        self.stagnant=False
+        
         self.force = self.m*self.acc
         self.forces = {'electrostatic': np.array([0.0,0.0]), 
                        'coulomb':       np.array([0.0,0.0]), 
@@ -47,7 +49,10 @@ class Particle:
         #self.acc=self.force/self.m
         #self.vel+=self.acc*self.structure.dt
         
-        self.vel=(self.forces['electrostatic']+self.forces['coulomb'])/self.stokes_coeff
+        if self.stagnant:
+            self.vel=np.array([0.0,0.0])
+        else:            
+            self.vel=(self.forces['electrostatic']+self.forces['coulomb'])/self.stokes_coeff
         #self.vel+=self.vel_col
         self.pos+=self.vel*self.structure.dt
         
@@ -67,10 +72,12 @@ class Particle:
             self.structure_period += 1
         if wall=='bottom':
             self.pos[1]=self.r*1.1            
-            self.vel[1]*=-1 #elastisch
+            #self.vel[1]*=-1 #elastisch
+            self.stagnant=True
         if wall=='top':
             self.pos[1]=self.structure.y-self.r*1.1
-            self.vel[1]*=-1 #elastisch
+            #self.vel[1]*=-1 #elastisch
+            self.stagnant=True
             
     @property
     def real_pos(self):

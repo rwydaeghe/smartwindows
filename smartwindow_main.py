@@ -9,7 +9,7 @@ print('initializing')
 structure = Structure((20e-5, 5e-5))
 
 print('adding particles')
-structure.add_gaussian_particle_cloud(N=50, avg_pos=(1e-5,2.5e-5), var_pos=(1e-5,1e-5))        
+structure.add_gaussian_particle_cloud(N=50, avg_pos=(1e-5,2.5e-5), var_pos=(1e-5,1e-5), avg_size=8e-7)        
 #structure.add_gaussian_particle_cloud(N=50, avg_pos=(18e-5,2.5e-5), var_pos=(1e-5,1e-5))       
 
 #structure.add_gaussian_particle_cloud(N=500, avg_pos=(10e-5,2.5e-5), var_pos=(10e-5,2e-5))         

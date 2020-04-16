@@ -103,6 +103,8 @@ class Structure:
         self.E = np.array([Ex,Ey])        
 #        with open('Variables/electric_field.pkl','rb') as f:                    # eventueel werken met opgeslagen velden
 #            self.E = pickle.load(f)
+        for particle in self.particles:
+            particle.stagnant=False
             
     def update_electrodes(self):
         t=self.time_steps_passed
@@ -152,9 +154,8 @@ class Structure:
             force  = -particle.charge*1.602e-19*np.array([Ex[v], Ey[v]])
             particle.forces['electrostatic']=force
         
-        print('coul', self.particles[0].forces['coulomb'])
-        print('elec', self.particles[0].forces['electrostatic'])
-
+        #print('coul', self.particles[0].forces['coulomb'])
+        #print('elec', self.particles[0].forces['electrostatic'])
                 
     def update_particles(self):
         for particle in self.particles:
@@ -163,10 +164,17 @@ class Structure:
 
     def collide_particles(self, p1, p2, r12, norm_r):
         #elastic collision
+        """
         v12=p2.vel-p1.vel
         val=2/(p1.m+p2.m)*np.dot(v12,r12)/norm_r**2*r12
         p1.vel+=p2.m*val
-        p2.vel-=p1.m*val      
+        p2.vel-=p1.m*val"""
+        if p1.stagnant==True:
+            p2.pos=p1.pos+(p1.r+p2.r)*r12/norm_r
+            p2.stagnant=True            
+        if p2.stagnant==True:
+            p1.stagnant=True
+            p1.pos=p2.pos-(p1.r+p2.r)*r12/norm_r
         
     def keep_contained(self):
         for i, _ in zip(self.particles_left.col, self.particles_left.data):
