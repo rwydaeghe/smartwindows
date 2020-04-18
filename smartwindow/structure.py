@@ -141,17 +141,17 @@ class Structure:
         
         #electrostatic force
         for particle in self.particles:
-            tr = self.trifinder(*particle.pos)                    # triangle where particle is
-            i = self.triang_V.triangles[tr]                                          # indices of vertices
-            v0 = np.array([self.triang_V.x[i[0]],self.triang_V.y[i[0]]])                  # position of vertex 1
+            tr = self.trifinder(*particle.pos)                                  # triangle where particle is
+            i = self.triang_V.triangles[tr]                                     # indices of vertices of tr
+            v0 = np.array([self.triang_V.x[i[0]],self.triang_V.y[i[0]]])        # position of vertex 1
             v1 = np.array([self.triang_V.x[i[1]],self.triang_V.y[i[1]]])
             v2 = np.array([self.triang_V.x[i[2]],self.triang_V.y[i[2]]])
-            norm = np.array([np.linalg.norm(v0),np.linalg.norm(v1),np.linalg.norm(v2)])
+            norm = np.array([np.linalg.norm(v0-particle.pos),np.linalg.norm(v1-particle.pos),np.linalg.norm(v2-particle.pos)])
             j = np.argmin(norm)                                                 # nearest vertex        
             v = i[j]
             Ex = np.array(self.E[0])
             Ey = np.array(self.E[1])
-            force  = -particle.charge*1.602e-19*np.array([Ex[v], Ey[v]])
+            force  = -particle.charge*e*np.array([Ex[v], Ey[v]])
             particle.forces['electrostatic']=force
         
         #print('coul', self.particles[0].forces['coulomb'])

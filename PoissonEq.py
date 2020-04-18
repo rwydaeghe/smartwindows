@@ -13,8 +13,9 @@ import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation, CubicTriInterpolator
 import numpy as np
 import pickle
+import random as r
 
-#t1 = time.clock()
+t1 = time.clock()
 
 # Classes for different electrodes
 class E1(SubDomain):
@@ -54,8 +55,10 @@ class PeriodicBoundary(SubDomain):
 # Create periodic boundary condition
 pbc = PeriodicBoundary()
 
+
+
 # Create mesh and finite element
-p0 = Point(0.0,0)
+p0 = Point(0.0,0.0)
 p1 = Point(20.0e-5,5.0e-5)
 mesh = RectangleMesh(p0,p1,200,50)
 V = FunctionSpace(mesh, "CG", 1, constrained_domain=pbc)
@@ -68,38 +71,49 @@ def DirBoundary(v1=0, v2=0, v3=0, v4=0):
     bcs = [DirichletBC(V, v1, e1), DirichletBC(V, v2, e2), DirichletBC(V, v3, e3), DirichletBC(V, v4, e4),]
     return bcs
 
+
 a = dot(grad(u), grad(v))*dx
 L = f*v*dx
 
-# Compute solution
-u1 = Function(V)
-u2 = Function(V)
-u3 = Function(V)
-u4 = Function(V)
-solve(a == L, u1, DirBoundary(v1=1))
-solve(a == L, u2, DirBoundary(v2=1))
-solve(a == L, u3, DirBoundary(v3=1))
-solve(a == L, u4, DirBoundary(v4=1))
+A, b = assemble_system(a, L, DirBoundary())
 
-#print(time.clock()-t1)
+# Compute solution
+#u1 = Function(V)
+#u2 = Function(V)
+#u3 = Function(V)
+#u4 = Function(V)
+u = Function(V)
+#solve(a == L, u1, DirBoundary(v1=1))
+#solve(a == L, u2, DirBoundary(v2=1))
+#solve(a == L, u3, DirBoundary(v3=1))
+#solve(a == L, u4, DirBoundary(v4=1))
+
+
+for i in range(5):
+    p = Point(r.uniform(0.1e-5,19.9e-5),r.uniform(0.1e-5,4.9e-5))
+    delta = PointSource(V,p,1)
+    delta.apply(b)
+solve(A, u.vector(), b)
+
+print(time.clock()-t1)
 
 # Plot solution
-c = plot(u1)
+c = plot(u)
 plt.colorbar(c)
 
 
 # storing solution as arrays
-mesh = u1.function_space().mesh()
-z1 = u1.compute_vertex_values(mesh)
-z2 = u2.compute_vertex_values(mesh)
-z3 = u3.compute_vertex_values(mesh)
-z4 = u4.compute_vertex_values(mesh)
-x = mesh.coordinates()[:,0]
-y = mesh.coordinates()[:,1]
-t = mesh.cells()
-
-# making triangulation
-triang = Triangulation(x,y,t)
+#mesh = u1.function_space().mesh()
+#z1 = u1.compute_vertex_values(mesh)
+#z2 = u2.compute_vertex_values(mesh)
+#z3 = u3.compute_vertex_values(mesh)
+#z4 = u4.compute_vertex_values(mesh)
+#x = mesh.coordinates()[:,0]
+#y = mesh.coordinates()[:,1]
+#t = mesh.cells()
+#
+## making triangulation
+#triang = Triangulation(x,y,t)
 
 # computing gradient
 #tci1 = CubicTriInterpolator(triang, -z1)
@@ -113,9 +127,9 @@ triang = Triangulation(x,y,t)
 
 
 # saving variables as pickle file
-with open ('Variables/voltages_small.pkl','wb') as f:
-    pickle.dump([z1,z2,z3,z4],f)
-    
-with open ('Variables/triangulation_small.pkl','wb') as f:
-    pickle.dump(triang,f)
+#with open ('Variables/voltages_small.pkl','wb') as f:
+#    pickle.dump([z1,z2,z3,z4],f)
+#    
+#with open ('Variables/triangulation_small.pkl','wb') as f:
+#    pickle.dump(triang,f)
     
