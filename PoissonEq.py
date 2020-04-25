@@ -88,18 +88,26 @@ u = Function(V)
 #solve(a == L, u3, DirBoundary(v3=1))
 #solve(a == L, u4, DirBoundary(v4=1))
 
+point_sources = np.zeros(105083001).reshape(201,51,10251)
 
-for i in range(5):
-    p = Point(r.uniform(0.1e-5,19.9e-5),r.uniform(0.1e-5,4.9e-5))
-    delta = PointSource(V,p,1)
-    delta.apply(b)
-solve(A, u.vector(), b)
+for x in range(201):
+    for y in range(51):
+        p = Point(x*10**(-6),y*10**(-6))
+        delta = PointSource(V,p,1)
+        delta.apply(b)
+        solve(A, u.vector(), b)
+        z = u.compute_vertex_values(mesh)
+        point_sources[x,y] = z
+        delta_remove = PointSource(V,p,-1)
+        delta_remove.apply(b)
+    
+
 
 print(time.clock()-t1)
 
 # Plot solution
-c = plot(u)
-plt.colorbar(c)
+#c = plot(u)
+#plt.colorbar(c)
 
 
 # storing solution as arrays
