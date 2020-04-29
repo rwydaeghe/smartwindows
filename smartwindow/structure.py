@@ -15,6 +15,8 @@ import pickle
 eps = np.finfo(float).eps 
 k_e = 8.987e9
 e   = 1.602e-19
+eps_0 = 8.854e-12
+eps_r = 2
 
 class Structure:
     def __init__(self,
@@ -94,9 +96,15 @@ class Structure:
         with open('Variables/triangulation_small.pkl','rb') as f:
             self.triang_V = pickle.load(f) 
             self.trifinder = self.triang_V.get_trifinder()
+        with open('Variables/point_sources.pkl','rb') as f:
+            self.point_sources = pickle.load(f) 
 
     def update_fields(self, x1 : float = 0.0, x2 : float = 0.0, x3 : float = 0.0, x4 : float = 0.0):
         V = x1*self.V1 + x2*self.V2 + x3*self.V3 + x4*self.V4
+        for particle in self.particles:
+            i = int(round(particle.pos[0]*10**6))
+            j = int(round(particle.pos[1]*10**6))
+            V += self.point_sources[i,j]*particle.charge*e/(eps_0*eps_r)
         tci = LinearTriInterpolator(self.triang_V,-V)                                # faster interpolator, but not as accurate                             
 #        tci = CubicTriInterpolator(self.triang_V, -V)                              
         (Ex, Ey) = tci.gradient(self.triang_V.x,self.triang_V.y)
