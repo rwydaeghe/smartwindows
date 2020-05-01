@@ -118,16 +118,29 @@ class Structure:
         t=self.time_steps_passed
         t_c=self.electrode_cycle
         
-        if t%t_c==t_c/4*0:
+#        if t%t_c==t_c/4*0:
+#            self.electrode_config='bottom left'
+#            self.update_fields(x1=1)
+#        if t%t_c==t_c/4*1:
+#            self.electrode_config='top middle'
+#            self.update_fields(x3=1)
+#        if t%t_c==t_c/4*2:
+#            self.electrode_config='bottom middle'
+#            self.update_fields(x2=1)
+#        if t%t_c==t_c/4*3:
+#            self.electrode_config='top right'
+#            self.update_fields(x4=1)
+        
+        if t%t_c<t_c/4*1:
             self.electrode_config='bottom left'
             self.update_fields(x1=1)
-        if t%t_c==t_c/4*1:
+        elif t%t_c<t_c/4*2:
             self.electrode_config='top middle'
             self.update_fields(x3=1)
-        if t%t_c==t_c/4*2:
+        elif t%t_c<t_c/4*3:
             self.electrode_config='bottom middle'
             self.update_fields(x2=1)
-        if t%t_c==t_c/4*3:
+        else:
             self.electrode_config='top right'
             self.update_fields(x4=1)
             
