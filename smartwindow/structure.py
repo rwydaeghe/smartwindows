@@ -1,5 +1,5 @@
 from smartwindow import *
-from typing import Tuple, List, Callable
+from typing import Tuple, List, Callable, Union
 from numbers import Number
 from operator import attrgetter
 from scipy.sparse import *
@@ -13,7 +13,6 @@ import pickle
 
 #constants
 eps = np.finfo(float).eps 
-k_e = 8.987e9
 e   = 1.602e-19
 eps_0 = 8.854e-12
 eps_r = 2
@@ -28,11 +27,11 @@ class Structure:
         self.density=750
         part_speed=5e-5
         self.courant=0.7
-#        self.dt = self.courant*self.grid_spacing/part_speed
         self.time_steps_passed=0
+        self.t=0
         self.dt=1e-1
         
-        self.electrode_cycle=200 #please be a multiple of 4
+        self.electrode_cycle=200
         self.period=0
         self.electrode_config='initialising...'
         
@@ -67,8 +66,10 @@ class Structure:
             self.add_particle(
                  Particle(pos = positions[i], charge = charges[i], r = sizes[i])
                  )
+        if not self.contains(self.particles):
+                self.keep_contained()
     
-    def run(self, total_time: Number, animate: bool = True):
+    def run(self, total_time: Number, animate: bool = True, visualizeWithField: bool=False):
         total_time = self._handle_time(total_time)
         time = range(0, total_time, 1)
             
@@ -76,17 +77,17 @@ class Structure:
         plt.get_current_fig_manager().window.showMaximized()
         plt.ion()            
         for _ in tqdm(time):
-            self.update_electrodes()            
-            self.update_forces()
-            self.update_particles()
+            self.update_electrodes()           
+            #self.add_point_sources(self.particles)
+            self.update_forces(self.particles)
+            self.update_particles(self.particles)
             if not self.contains(self.particles):
                 self.keep_contained()
             self.time_steps_passed+=1
             if animate:
-                self.visualize()
-                plt.pause(0.01)
+                self.visualize(visualizeWithField)
         if not animate:
-            self.visualize()
+            self.visualize(visualizeWithField)
         plt.ioff()      
         
     def load_fields(self):
@@ -100,88 +101,99 @@ class Structure:
             self.point_sources = pickle.load(f) 
 
     def update_fields(self, x1 : float = 0.0, x2 : float = 0.0, x3 : float = 0.0, x4 : float = 0.0):
-        V = x1*self.V1 + x2*self.V2 + x3*self.V3 + x4*self.V4
-        for particle in self.particles:
-            i = int(round(particle.pos[0]*10**6))
-            j = int(round(particle.pos[1]*10**6))
-            V += self.point_sources[i,j]*particle.charge*e/(eps_0*eps_r)
-        tci = LinearTriInterpolator(self.triang_V,-V)                                # faster interpolator, but not as accurate                             
-#        tci = CubicTriInterpolator(self.triang_V, -V)                              
+        self.V = x1*self.V1 + x2*self.V2 + x3*self.V3 + x4*self.V4
+        tci = LinearTriInterpolator(self.triang_V,-self.V) # faster interpolator, but not as accurate                             
         (Ex, Ey) = tci.gradient(self.triang_V.x,self.triang_V.y)
-        self.E = np.array([Ex,Ey])        
-#        with open('Variables/electric_field.pkl','rb') as f:                    # eventueel werken met opgeslagen velden
-#            self.E = pickle.load(f)
+        self.E = np.array([Ex,Ey])            
         for particle in self.particles:
             particle.stagnant=False
             
+    def add_point_sources(self,particles):
+        self.V_point_sources=0
+        for particle in particles:
+            i = int(round(particle.pos[0]*10**6))
+            j = int(round(particle.pos[1]*10**6))
+            #to do: still a bug with particles being outside the period...
+            #if not self.contains([particle]):
+            #    print(self.particles_left.nnz,
+            #          self.particles_right.nnz,
+            #          self.particles_top.nnz,
+            #          self.particles_bottom.nnz)
+            self.V_point_sources += self.point_sources[i,j]*particle.charge*e/(eps_0*eps_r)
+        tci = LinearTriInterpolator(self.triang_V,-self.V_point_sources) # faster interpolator, but not as accurate                             
+        (Ex, Ey) = tci.gradient(self.triang_V.x,self.triang_V.y)
+        self.E += np.array([Ex,Ey])
+        
     def update_electrodes(self):
         t=self.time_steps_passed
         t_c=self.electrode_cycle
         
-#        if t%t_c==t_c/4*0:
-#            self.electrode_config='bottom left'
-#            self.update_fields(x1=1)
-#        if t%t_c==t_c/4*1:
-#            self.electrode_config='top middle'
-#            self.update_fields(x3=1)
-#        if t%t_c==t_c/4*2:
-#            self.electrode_config='bottom middle'
-#            self.update_fields(x2=1)
-#        if t%t_c==t_c/4*3:
-#            self.electrode_config='top right'
-#            self.update_fields(x4=1)
-        
-        if t%t_c<t_c/4*1:
+        if t%t_c==t_c/4*0:
             self.electrode_config='bottom left'
             self.update_fields(x1=1)
-        elif t%t_c<t_c/4*2:
+        if t%t_c==t_c/4*1:
             self.electrode_config='top middle'
             self.update_fields(x3=1)
-        elif t%t_c<t_c/4*3:
+        if t%t_c==t_c/4*2:
             self.electrode_config='bottom middle'
             self.update_fields(x2=1)
-        else:
+        if t%t_c==t_c/4*3:
             self.electrode_config='top right'
             self.update_fields(x4=1)
-            
+        
         self.period=t//t_c   
         
-    def update_forces(self):
+    def update_forces(self, particles):
         #coulomb force
-        cst=k_e*e**2
-        for i,p1 in enumerate(self.particles):
-            for _,p2 in enumerate(self.particles[i+1:]):
+        #"""
+        cst=e**2/(4*np.pi*eps_0*eps_r)
+        for i,p1 in enumerate(particles):
+            for _,p2 in enumerate(particles[i+1:]):
                 r=p2.real_pos-p1.real_pos
                 norm_r=np.linalg.norm(r)
                 if norm_r<(p1.r+p2.r):
                     self.collide_particles(p1, p2, r, norm_r)
                 else:
-                    force=cst*p1.charge*p2.charge/norm_r**3*r                    
+                    force=cst*p1.charge*p2.charge/norm_r**3*r      
                     p1.forces['coulomb']=-force
                     p2.forces['coulomb']=force
-        
+        #"""
         #electrostatic force
-        for particle in self.particles:
-            tr = self.trifinder(*particle.pos)                                  # triangle where particle is
-            i = self.triang_V.triangles[tr]                                     # indices of vertices of tr
-            v0 = np.array([self.triang_V.x[i[0]],self.triang_V.y[i[0]]])        # position of vertex 1
-            v1 = np.array([self.triang_V.x[i[1]],self.triang_V.y[i[1]]])
-            v2 = np.array([self.triang_V.x[i[2]],self.triang_V.y[i[2]]])
-            norm = np.array([np.linalg.norm(v0-particle.pos),np.linalg.norm(v1-particle.pos),np.linalg.norm(v2-particle.pos)])
-            j = np.argmin(norm)                                                 # nearest vertex        
-            v = i[j]
-            Ex = np.array(self.E[0])
-            Ey = np.array(self.E[1])
-            force  = -particle.charge*e*np.array([Ex[v], Ey[v]])
+        for particle in particles:
+            force  = -particle.charge*e*self.get_electric_field(particle.pos)
             particle.forces['electrostatic']=force
+        
+        #check if fieldlines are normal to electrodes
+        """
+        reference_points=[np.array([self.x/4*(0+0.5),0]),
+                          np.array([self.x/4*(1+0.5),self.y]),
+                          np.array([self.x/4*(2+0.5),0]),
+                          np.array([self.x/4*(3+0.5),self.y])]
+        for refpoint in reference_points:
+            Ex, Ey =self.get_electric_field(refpoint) 
+            print(np.degrees(np.arctan(Ey/Ex))) #x-component should be zero
+        """
         
         #print('coul', self.particles[0].forces['coulomb'])
         #print('elec', self.particles[0].forces['electrostatic'])
                 
-    def update_particles(self):
-        for particle in self.particles:
-            particle.update_force()
+    def update_particles(self, particles):
+        for particle in particles:
+            #particle.update_force() #deprecated
             particle.update_pos()
+            
+    def get_electric_field(self, pos: np.ndarray) -> np.ndarray:
+        tr = self.trifinder(*pos)                                  # triangle where particle is
+        i = self.triang_V.triangles[tr]                                     # indices of vertices of tr
+        v0 = np.array([self.triang_V.x[i[0]],self.triang_V.y[i[0]]])        # position of vertex 1
+        v1 = np.array([self.triang_V.x[i[1]],self.triang_V.y[i[1]]])
+        v2 = np.array([self.triang_V.x[i[2]],self.triang_V.y[i[2]]])
+        norm = np.array([np.linalg.norm(v0-pos),np.linalg.norm(v1-pos),np.linalg.norm(v2-pos)])
+        j = np.argmin(norm)                                                 # nearest vertex        
+        v = i[j]
+        Ex = np.array(self.E[0])
+        Ey = np.array(self.E[1])
+        return np.array([Ex[v], Ey[v]])
 
     def collide_particles(self, p1, p2, r12, norm_r):
         #elastic collision
@@ -197,17 +209,23 @@ class Structure:
             p1.stagnant=True
             p1.pos=p2.pos-(p1.r+p2.r)*r12/norm_r
         
-    def keep_contained(self):
-        for i, _ in zip(self.particles_left.col, self.particles_left.data):
-            self.particles[i].collide(wall='left')
-        for i, _ in zip(self.particles_right.col, self.particles_right.data):
-            self.particles[i].collide(wall='right')
-        for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
-            self.particles[i].collide(wall='bottom')
-        for i, _ in zip(self.particles_top.col, self.particles_top.data):
-            self.particles[i].collide(wall='top')
+    def keep_contained(self, walls: str='all'):
+        if walls=='top_and_bottom':
+            for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
+                self.particles[i].collide(wall='bottom')
+            for i, _ in zip(self.particles_top.col, self.particles_top.data):
+                self.particles[i].collide(wall='top')
+        elif walls=='all':
+            for i, _ in zip(self.particles_left.col, self.particles_left.data):
+                self.particles[i].collide(wall='left')
+            for i, _ in zip(self.particles_right.col, self.particles_right.data):
+                self.particles[i].collide(wall='right')
+            for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
+                self.particles[i].collide(wall='bottom')
+            for i, _ in zip(self.particles_top.col, self.particles_top.data):
+                self.particles[i].collide(wall='top')
                         
-    def contains(self, particle_list: List):
+    def contains(self, particle_list: List) -> bool:
         """ Not only does this method return True if all particles are in 
         structure, it also updates lists of escaped particles by facet. Will 
         be called for all particles and maybe also individual particles """
@@ -217,8 +235,8 @@ class Structure:
             x[i], y[i] = particle.pos
             r[i] = particle.r
         
-        self.particles_left = coo_matrix(x - r < 0 + eps)
-        self.particles_right = coo_matrix(x + r > self.x - eps)
+        self.particles_left = coo_matrix(x < 0 + eps)
+        self.particles_right = coo_matrix(x > self.x - eps)
         self.particles_bottom = coo_matrix(y - r < 0 + eps)
         self.particles_top = coo_matrix(y + r > self.y - eps)
         
@@ -227,17 +245,19 @@ class Structure:
             self.particles_bottom.nnz != 0 &
             self.particles_top.nnz != 0):
             return True
+        else:
+            return False
         
     #for debugging
     def get_particles_attr(self, attr: str) -> np.ndarray:
         return np.array(list(map(attrgetter(attr), self.particles)))
     
-    def _handle_time(self, t):
+    def _handle_time(self, t: Union[int, float]) -> int:
         if isinstance(t, float):
             return int(t/self.dt)
         return t
     
-    def visualize(self):
+    def visualize(self, withField: bool=False):
         plt.clf()
         for particle in self.particles:
             particle.visualize()
@@ -249,6 +269,17 @@ class Structure:
                   + 'Electrode configuration: only ' + self.electrode_config)
         plt.ticklabel_format(style='sci', scilimits=(0,0))
         plt.gca().set_aspect('equal', adjustable='box')
+        
+        if withField:
+            x=np.linspace(0,self.x,100)
+            y=np.linspace(0,self.y,100)
+            X,Y=np.meshgrid(x,y)
+            #Ex=np.array([self.get_electric_field(np.array([x,y]))[0] for (x,y) in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+            #Ey=np.array([self.get_electric_field(np.array([x,y]))[1] for (x,y) in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+            #plt.quiver(X,Y,Ex,Ey)
+            Etot=np.array([np.linalg.norm(self.get_electric_field(np.array([x,y]))) for (x,y) in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+            plt.pcolor(X,Y,np.sqrt(Etot))
+        
         plt.legend(
             (plt.Circle((0,0), radius=5,color='b'),
              plt.Circle((0,0), radius=5,color='r'),

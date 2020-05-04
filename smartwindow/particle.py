@@ -6,7 +6,7 @@ import numpy as np
 class Particle:
     def __init__(self,
                  pos: Tuple[float,float] = (0.0,0.0),
-                 vel: Tuple[float,float] = (0.0,0.0),
+                 #vel: Tuple[float,float] = (0.0,0.0),
                  acc: Tuple[float,float] = (0.0,0.0),
                  charge: int = 100,
                  r: float = 3e-7,
@@ -14,10 +14,9 @@ class Particle:
                  c: str = 'r'
         ):
         self.structure = None
-        
         self.pos = np.array(pos)
         self.structure_period=0
-        self.vel = np.array(vel)
+        #self.vel = np.array(vel)        
         self.vel_col = np.array([0.0,0.0])
         self.acc = np.array(acc)
         self.charge=charge
@@ -36,6 +35,8 @@ class Particle:
         
     def _register_structure(self, structure):
         self.structure = structure
+        self.t=self.structure.t
+        self.dt=self.structure.dt
         self.stokes_coeff = 6*np.pi*self.structure.viscosity*self.r
 #        print(self.m/self.stokes_coeff)
         
@@ -47,14 +48,42 @@ class Particle:
         
     def update_pos(self):
         #self.acc=self.force/self.m
-        #self.vel+=self.acc*self.structure.dt
+        #self.vel+=self.acc*self.dt
         
-        if self.stagnant:
-            self.vel=np.array([0.0,0.0])
-        else:            
-            self.vel=(self.forces['electrostatic']+self.forces['coulomb'])/self.stokes_coeff
         #self.vel+=self.vel_col
-        self.pos+=self.vel*self.structure.dt
+        self.pos+=self.vel*self.dt
+        
+        if self.structure_period==self.structure.period:
+            self.color='r'
+        elif self.structure_period<self.structure.period:
+            self.color='b'
+        elif self.structure_period>self.structure.period:
+            self.color='g'
+    
+    @property
+    def vel(self):
+        if self.stagnant:
+            return np.array([0.0,0.0])
+        else:            
+            return (self.forces['electrostatic']+self.forces['coulomb'])/self.stokes_coeff
+    
+    """
+    @property
+    def next_pos(self):
+        return self.pos+self.vel*self.dt
+    
+    @property
+    def next_time(self):
+        return self.t+self.dt
+    """
+    @property
+    def next_space_time(self):
+        pos=self.pos+self.vel*self.dt
+        return np.array([pos[0],pos[1],self.t+self.dt])
+            
+    def set_space_time(self, event):
+        self.pos=event[1:3]
+        self.t+=event[3]
         
         if self.structure_period==self.structure.period:
             self.color='r'
@@ -65,11 +94,13 @@ class Particle:
         
     def collide(self, wall: str):
         if wall=='left':
-            self.pos[0]=self.structure.x-self.r*1.1 #perio RVW
+            #self.pos[0]=self.structure.x-self.r*1.1 
+            self.pos[0]+=self.structure.x #perio RVW
             self.structure_period -= 1
         if wall=='right':
-            self.pos[0]=self.r*1.1 #perio RVW
-            self.structure_period += 1
+            #self.pos[0]=self.r*1.1 
+            self.pos[0]-=self.structure.x #perio RVW
+            self.structure_period += 1            
         if wall=='bottom':
             self.pos[1]=self.r*1.1            
             #self.vel[1]*=-1 #elastisch
