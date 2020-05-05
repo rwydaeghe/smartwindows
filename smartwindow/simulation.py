@@ -1,15 +1,9 @@
 from smartwindow import *
 from typing import Tuple, List, Callable, Union
-from numbers import Number
-from operator import attrgetter
-from scipy.sparse import *
 import matplotlib.pyplot as plt
-from matplotlib.tri import Triangulation, CubicTriInterpolator, LinearTriInterpolator
-import random
 import numpy as np
 import time
-from tqdm import tqdm
-import pickle
+import sys
 
 #constants
 eps = np.finfo(float).eps 
@@ -31,18 +25,21 @@ class Simulation:
         plt.ion()
         self.events=np.zeros((4,len(self.particles)))
         for i,particle in enumerate(self.particles):
-            particle.dt=particle.charge/100
+            particle.dt=particle.charge/100*1e-1
             self.events[0,i]=i
             self.events[1:,i]=particle.next_space_time
         
         self.events=self.events[:,self.events[3,:].argsort()] #sorts events by time
         
-        self.structure.update_electrodes()
-        self.structure.add_point_sources(self.particles)
-        self.structure.update_forces(self.particles)
-        self.structure.update_particles(self.particles)
         
         while self.t<run_time:
+            self.structure.update_electrodes()
+            self.structure.add_point_sources(self.particles)
+            self.structure.update_forces(self.particles)
+            
+            sys.stdout.write("\rt="+str(self.t))
+            sys.stdout.flush()
+
             self.do_event(self.youngest_event)
             self.advance_event(0)
             
@@ -50,36 +47,21 @@ class Simulation:
                 self.structure.keep_contained()
             if animate:
                 self.structure.visualize(visualizeWithField)
-        if not animate:
-            self.structure.visualize(visualizeWithField)
+            if not animate:
+                self.structure.visualize(visualizeWithField)
         plt.ioff()
         
     def do_event(self, event):
         particle=self.particles[int(event[0])]
         particle.set_space_time(event)
+        self.t+=event[3]        
         
-    def advance_event(self, event_number):
-        particle_id=int(self.events[0,event_number])
+    def advance_event(self, event_index):
+        particle_id=int(self.events[0,event_index])
         particle=self.particles[particle_id]
         
-        print(self.events)
-        self.events[1:,event_number]=particle.next_space_time
-        print(self.events)        
+        self.events[1:,event_index]=particle.next_space_time
         self.events=self.events[:,self.events[3,:].argsort(kind='stable')] #efficiently sorts the almost perfectly sorted events by time
-        print(self.events)
-        """
-        time_index=np.searchsorted(self.events[3,1:],
-                                   self.events[3,event_number])
-        print(self.events)
-        print(time_index)
-        self.events=np.insert(
-                    self.events[:,1:],
-                    time_index,
-                    self.events[:,event_number],
-                    axis=1)
-        print(self.events)
-        """
-        plt.pause(2)
        
     @property
     def youngest_event(self):

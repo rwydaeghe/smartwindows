@@ -114,9 +114,12 @@ class Particle:
     def real_pos(self):
         return np.array([self.pos[0]+self.structure.x*self.structure_period,self.pos[1]])
         
-    def visualize(self):
+    def visualize(self, with_arrows: bool=False):
         #self.disp_pos=self.pos
         #self.disp_pos[0]=self.disp_pos[0]%self.structure.x
         #plt.gca().add_artist(plt.Circle(self.disp_pos, self.r, color=self.color))
-        
+        if with_arrows:
+            scale=0.01
+            forces=scale*np.array([self.forces['electrostatic'],self.forces['coulomb']])        
+            plt.quiver(self.pos[0],self.pos[1],forces[:,0],forces[:,1],color=['g','b'],width=1e-3)
         plt.gca().add_artist(plt.Circle(self.pos, self.r, color=self.color))
