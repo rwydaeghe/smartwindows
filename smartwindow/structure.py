@@ -34,7 +34,8 @@ class Structure:
         self.electrode_cycle=200
         self.period=0
         self.electrode_config='initialising...'
-        
+#dummyvariabele voor niet te blijven hangen aan de electrode
+        self.voltage_up=True        
     def add_particle(self, particle):
         particle._register_structure(self)
         self.particles.append(particle)
@@ -76,12 +77,13 @@ class Structure:
         time = range(0, total_time, 1)
         if electrode_values==[]:
             for times in range(total_time//self.electrode_cycle):
-                electrode_values.append([[-20,0,0,0],[0,0,-20,0],[0,-20,0,0],[0,0,0,-20]])  
+                electrode_values.append([[-50,0,0,0],[0,0,-50,0],[0,-50,0,0],[0,0,0,-50]])  
         plt.figure('Simulation')
         # plt.get_current_fig_manager().window.showMaximized()
         plt.ion()            
         for _ in tqdm(time):
-            self.update_electrodes(electrode_values[self.period])           
+            self.update_electrodes(electrode_values[self.period])
+            print(self.period)
             self.add_point_sources(self.particles)
             self.update_forces(self.particles)
             self.update_particles(self.particles)
@@ -135,15 +137,19 @@ class Structure:
         if t%t_c==t_c/4*0:
             self.electrode_config='bottom left'
             self.update_fields(x=electrode_value[0])
+            self.voltage_up=False
         if t%t_c==t_c/4*1:
             self.electrode_config='top middle'
             self.update_fields(x=electrode_value[1])
+            self.voltage_up=True
         if t%t_c==t_c/4*2:
             self.electrode_config='bottom middle'
             self.update_fields(x=electrode_value[2])
+            self.voltage_up=False
         if t%t_c==t_c/4*3:
             self.electrode_config='top right'
             self.update_fields(x=electrode_value[3])
+            self.voltage_up=True
         
         self.period=t//t_c   
         
@@ -214,18 +220,18 @@ class Structure:
     def keep_contained(self, walls: str='all'):
         if walls=='top_and_bottom':
             for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
-                self.particles[i].collide(wall='bottom')
+                self.particles[i].collide(wall='bottom',voltage= not self.voltage_up)
             for i, _ in zip(self.particles_top.col, self.particles_top.data):
-                self.particles[i].collide(wall='top')
+                self.particles[i].collide(wall='top',voltage=self.voltage_up)
         elif walls=='all':
             for i, _ in zip(self.particles_left.col, self.particles_left.data):
                 self.particles[i].collide(wall='left')
             for i, _ in zip(self.particles_right.col, self.particles_right.data):
                 self.particles[i].collide(wall='right')
             for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
-                self.particles[i].collide(wall='bottom')
+                self.particles[i].collide(wall='bottom',voltage=not self.voltage_up)
             for i, _ in zip(self.particles_top.col, self.particles_top.data):
-                self.particles[i].collide(wall='top')
+                self.particles[i].collide(wall='top',voltage=self.voltage_up)
                         
     def contains(self, particle_list: List) -> bool:
         """ Not only does this method return True if all particles are in 

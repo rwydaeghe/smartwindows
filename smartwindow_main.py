@@ -19,9 +19,12 @@ structure.add_gaussian_particle_cloud(N=50, avg_pos=(10e-5,2.5e-5), var_pos=(1e-
 #structure.add_particle(Particle(pos = (11.5e-5,3.5e-5), charge = 50, r = 5e-7,c='b'))
 #structure.add_particle(Particle(pos = (11.5e-5,3.5e-5), vel=(-1e-5,-1e-5), charge = 50, r = 5e-7,c='g'))
 #structure.add_particle(Particle(pos = (1e-5,0.5e-5), vel=(-1e-5,-1e-5), charge = 50, r = 5e-7,c='g'))
+values=[]
+for i in range(2000//structure.electrode_cycle):
+    values.append([[-50,0,0,0],[0,0,-50,0],[0,-50,0,0],[0,0,0,-50]])
 periods = []
 structure.load_fields()
-structure.run(200,with_field='nothing',with_arrows=False)
+structure.run(2000,with_field='nothing',with_arrows=False,electrode_values=values)
 for particle in structure.particles:
     periods.append(particle.structure_period)
 result= np.bincount(np.array(periods)+1)
