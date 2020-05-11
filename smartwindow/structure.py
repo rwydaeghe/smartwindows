@@ -69,15 +69,19 @@ class Structure:
         if not self.contains(self.particles):
                 self.keep_contained()
     
-    def run(self, total_time: Number, animate: bool = True, **kwargs):
+    def run(self, total_time: Number, animate: bool = True, electrode_values= [], **kwargs):
+
+            
         total_time = self._handle_time(total_time)
         time = range(0, total_time, 1)
-            
+        if electrode_values==[]:
+            for times in range(total_time//self.electrode_cycle):
+                electrode_values.append([[-20,0,0,0],[0,0,-20,0],[0,-20,0,0],[0,0,0,-20]])  
         plt.figure('Simulation')
-        plt.get_current_fig_manager().window.showMaximized()
+        # plt.get_current_fig_manager().window.showMaximized()
         plt.ion()            
         for _ in tqdm(time):
-            self.update_electrodes()           
+            self.update_electrodes(electrode_values[self.period])           
             self.add_point_sources(self.particles)
             self.update_forces(self.particles)
             self.update_particles(self.particles)
@@ -100,8 +104,8 @@ class Structure:
         with open('Variables/point_sources.pkl','rb') as f:
             self.point_sources = pickle.load(f) 
 
-    def update_fields(self, x1 : float = 0.0, x2 : float = 0.0, x3 : float = 0.0, x4 : float = 0.0):
-        self.V_electrodes = x1*self.V1 + x2*self.V2 + x3*self.V3 + x4*self.V4
+    def update_fields(self, x=[0,0,0,0]):
+        self.V_electrodes = x[0]*self.V1 + x[1]*self.V2 + x[2]*self.V3 + x[3]*self.V4
         tci = LinearTriInterpolator(self.triang_V,self.V_electrodes) # faster interpolator, but not as accurate                             
         (Ex, Ey) = tci.gradient(self.triang_V.x,self.triang_V.y)
         self.E_electrodes = -np.array([Ex,Ey])
@@ -124,22 +128,22 @@ class Structure:
         (Ex, Ey) = tci.gradient(self.triang_V.x,self.triang_V.y)
         self.E_point_sources = -np.array([Ex,Ey])
         
-    def update_electrodes(self):
+    def update_electrodes(self,electrode_value):
         t=self.time_steps_passed
         t_c=self.electrode_cycle
         
         if t%t_c==t_c/4*0:
             self.electrode_config='bottom left'
-            self.update_fields(x1=100)
+            self.update_fields(x=electrode_value[0])
         if t%t_c==t_c/4*1:
             self.electrode_config='top middle'
-            self.update_fields(x3=100)
+            self.update_fields(x=electrode_value[1])
         if t%t_c==t_c/4*2:
             self.electrode_config='bottom middle'
-            self.update_fields(x2=100)
+            self.update_fields(x=electrode_value[2])
         if t%t_c==t_c/4*3:
             self.electrode_config='top right'
-            self.update_fields(x4=100)
+            self.update_fields(x=electrode_value[3])
         
         self.period=t//t_c   
         
