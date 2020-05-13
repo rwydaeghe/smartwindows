@@ -34,7 +34,8 @@ class Structure:
         self.electrode_cycle=200
         self.period=0
         self.electrode_config='initialising...'
-        
+#dummyvariabele voor niet te blijven hangen aan de electrode
+        self.voltage_up=True        
     def add_particle(self, particle):
         particle._register_structure(self)
         self.particles.append(particle)
@@ -69,15 +70,18 @@ class Structure:
         if not self.contains(self.particles):
             self.keep_contained()
     
-    def run(self, total_time: Number, animate: bool = True, **kwargs):
+    def run(self, total_time: Number, animate: bool = True, electrode_values= [], **kwargs):
         total_time = self._int_time(total_time)
-        time = range(0, total_time, 1)
             
+        time = range(0, total_time, 1)
+        if electrode_values==[]:
+            for times in range(total_time//self.electrode_cycle):
+                electrode_values.append([[-50,0,0,0],[0,0,-50,0],[0,-50,0,0],[0,0,0,-50]])  
         plt.figure('Simulation')
-        plt.get_current_fig_manager().window.showMaximized()
+        # plt.get_current_fig_manager().window.showMaximized()
         plt.ion()            
         for _ in tqdm(time):
-            self.update_electrodes()           
+            self.update_electrodes(electrode_values[self.period])
             self.update_E_particles(self.particles)
             self.update_forces(self.particles)
             self.update_particles(self.particles)
@@ -101,8 +105,8 @@ class Structure:
         with open('Variables/point_sources.pkl','rb') as f:
             self.point_sources = pickle.load(f) 
 
-    def update_E_electrodes(self, x1 : float = 0.0, x2 : float = 0.0, x3 : float = 0.0, x4 : float = 0.0):
-        self.V_electrodes = x1*self.V1 + x2*self.V2 + x3*self.V3 + x4*self.V4
+    def update_fields(self, x=[0,0,0,0]):
+        self.V_electrodes = x[0]*self.V1 + x[1]*self.V2 + x[2]*self.V3 + x[3]*self.V4
         tci = LinearTriInterpolator(self.triang_V,self.V_electrodes) # faster interpolator, but not as accurate                             
         (Ex, Ey) = tci.gradient(self.triang_V.x,self.triang_V.y)
         self.E_electrodes = -np.array([Ex,Ey])
@@ -126,28 +130,35 @@ class Structure:
         else:
             self.E_point_sources = -np.array([Ex,Ey])
         
-        
-    def update_electrodes(self):
+    def update_electrodes(self,electrode_value):
         t=self.time_steps_passed
         t_c=self.electrode_cycle
         
         if t%t_c==t_c/4*0:
             self.electrode_config='bottom left'
+            self.update_fields(x=electrode_value[0])
+            self.voltage_up=False
             self.update_E_electrodes(x1=-100)
             for particle in self.particles:
                 particle.stagnant=False
         if t%t_c==t_c/4*1:
             self.electrode_config='top middle'
+            self.update_fields(x=electrode_value[1])
+            self.voltage_up=True
             self.update_E_electrodes(x3=-100)
             for particle in self.particles:
                 particle.stagnant=False
         if t%t_c==t_c/4*2:
             self.electrode_config='bottom middle'
+            self.update_fields(x=electrode_value[2])
+            self.voltage_up=False
             self.update_E_electrodes(x2=-100)
             for particle in self.particles:
                 particle.stagnant=False
         if t%t_c==t_c/4*3:
             self.electrode_config='top right'
+            self.update_fields(x=electrode_value[3])
+            self.voltage_up=True
             self.update_E_electrodes(x4=-100)
             for particle in self.particles:
                 particle.stagnant=False
@@ -255,8 +266,10 @@ class Structure:
         if walls=='top_and_bottom':
             for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
                 particle_list[i].collide(wall='bottom')
+                self.particles[i].collide(wall='bottom',voltage= not self.voltage_up)
             for i, _ in zip(self.particles_top.col, self.particles_top.data):
                 particle_list[i].collide(wall='top')
+                self.particles[i].collide(wall='top',voltage=self.voltage_up)
         elif walls=='all':
             for i, _ in zip(self.particles_left.col, self.particles_left.data):
                 particle_list[i].collide(wall='left')
@@ -264,8 +277,10 @@ class Structure:
                 particle_list[i].collide(wall='right')
             for i, _ in zip(self.particles_bottom.col, self.particles_bottom.data):
                 particle_list[i].collide(wall='bottom')
+                self.particles[i].collide(wall='bottom',voltage=not self.voltage_up)
             for i, _ in zip(self.particles_top.col, self.particles_top.data):
                 particle_list[i].collide(wall='top')"""
+                self.particles[i].collide(wall='top',voltage=self.voltage_up)
         for i, _ in zip(self.particles_left.col, self.particles_left.data):
             particle_list[i].collide(wall='left')
         for i, _ in zip(self.particles_right.col, self.particles_right.data):

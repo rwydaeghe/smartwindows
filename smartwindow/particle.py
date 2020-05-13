@@ -98,7 +98,7 @@ class Particle:
         elif self.structure_period>self.structure.period:
             self.color='g'
         
-    def collide(self, wall: str):
+    def collide(self, wall: str,voltage=True):
         if wall=='left':
             #self.pos[0]=self.structure.x-self.r*1.1 
             self.pos[0]+=self.structure.x #perio RVW
@@ -109,12 +109,16 @@ class Particle:
             self.structure_period += 1            
         if wall=='bottom':
             self.pos[1]=self.r*1.1
-            #self.vel[1]*=-1 #elastisch
-            self.stagnant=True
+            if not voltage:
+                self.vel[1]*=-1 #elastisch
+            else:
+                self.stagnant=True
         if wall=='top':
             self.pos[1]=self.structure.y-self.r*1.1
-            #self.vel[1]*=-1 #elastisch
-            self.stagnant=True
+            if not voltage:
+                self.vel[1]*=-1 #elastisch
+            else:
+                self.stagnant=True
             
     @property
     def real_pos(self):
