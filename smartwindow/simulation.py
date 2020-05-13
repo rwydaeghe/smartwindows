@@ -57,7 +57,6 @@ class Simulation:
                 """if all particles are stagnant, skip the iteration and fast-foward some time
                 good when particles are really quick and low amounts
                 reduces accuracy, especially if overshooting future events with to big dt['fast_forward']"""
-                self.t+=self.dt['fast_forward']
                 #to do: potentially unnecessary as we'll wake them in reset_stagnant_particles
                 for particle in self.particles:
                     particle.t=self.t
@@ -137,25 +136,29 @@ class Simulation:
          & ((self.structure.electrode_config=='top right')
           | (self.structure.electrode_config=='initialising...'))):
             self.structure.electrode_config='bottom left'
-            self.structure.update_E_electrodes(x1=-100)
+            self.structure.update_E_electrodes(x=[-100,0,0,0])
+            self.structure.voltage_up=False
             self.electrodes_just_changed=True
         elif ((self.t%self.dt['electrode_cycle']>self.dt['electrode_cycle']/4*1)
             & (self.t%self.dt['electrode_cycle']<=self.dt['electrode_cycle']/4*2)
             & (self.structure.electrode_config=='bottom left')):
             self.structure.electrode_config='top middle'
-            self.structure.update_E_electrodes(x3=-100)
+            self.structure.update_E_electrodes(x=[0,0,-100,0])
+            self.structure.voltage_up=True
             self.electrodes_just_changed=True
         elif ((self.t%self.dt['electrode_cycle']>self.dt['electrode_cycle']/4*2)
             & (self.t%self.dt['electrode_cycle']<=self.dt['electrode_cycle']/4*3)
             & (self.structure.electrode_config=='top middle')):
             self.structure.electrode_config='bottom middle'
-            self.structure.update_E_electrodes(x2=-100)
+            self.structure.update_E_electrodes(x=[0,-100,0,0])
+            self.structure.voltage_up=False
             self.electrodes_just_changed=True
         elif ((self.t%self.dt['electrode_cycle']>self.dt['electrode_cycle']/4*3)
             & (self.t%self.dt['electrode_cycle']<=self.dt['electrode_cycle']/4*4)
             & (self.structure.electrode_config=='bottom middle')):
             self.structure.electrode_config='top right'
-            self.structure.update_E_electrodes(x4=-100)
+            self.structure.update_E_electrodes(x=[0,0,0,-100])
+            self.structure.voltage_up=True
             self.electrodes_just_changed=True
         
         self.t_passes_dt('electrode_cycle')
