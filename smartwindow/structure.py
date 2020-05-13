@@ -62,6 +62,12 @@ class Structure:
         positions = list(zip(np.random.normal(avg_pos[0],var_pos[0], N),np.random.normal(avg_pos[1],var_pos[1], N)))
         charges = np.random.normal(avg_charge,var_charge, N)
         sizes = np.random.normal(avg_size, var_size, N)
+        if avg_charge>0:
+            if any(charges<0):
+                print('Caution: at least one particle has negative charge')
+        elif avg_charge<0:
+            if any(charges>0):
+                print('Caution: at least one particle has positive charge')
         
         for i in range(N):
             self.add_particle(
@@ -76,7 +82,7 @@ class Structure:
         time = range(0, total_time, 1)
         if electrode_values==[]:
             for times in range(total_time//self.electrode_cycle):
-                electrode_values.append([[-50,0,0,0],[0,0,-50,0],[0,-50,0,0],[0,0,0,-50]])  
+                electrode_values.append([[-50,0,0,0],[0,0,-50,0],[0,-50,0,0],[0,0,0,-50]])
         plt.figure('Simulation')
         # plt.get_current_fig_manager().window.showMaximized()
         plt.ion()            

@@ -22,18 +22,22 @@ class Simulation:
         self.dx_imposed=1e-6 #indirectly related to the smallest time-scale
         self.dt={'on_electrode_change': 5e-4,
                  'initial':             self.structure.dt,
-                 'visual':              5e-3,
+                 'visual':              5e-3, #visually uniformifies everything below it
                  'long_range':          1e-2,
                  'fast_forward':        2e-1,
                  'electrode_cycle':     5e0} #one electrode switch is a 1/4th of this
         self.steps = dict.fromkeys(self.dt,0)
         self.electrodes_just_changed=False
         
-    def run(self, run_time, animate: bool = True, fast_forward=True, **kwargs):
+    def run(self, run_time, animate: bool = True, fast_forward=True, electrode_values= [], **kwargs):
         plt.figure('Simulation')
         plt.get_current_fig_manager().window.showMaximized()
         plt.ion()
-        run_time=self._int_time(run_time)
+        run_time=self._float_time(run_time)
+        
+        if electrode_values==[]:
+            for times in range(total_time//self.electrode_cycle):
+                electrode_values.append([[-50,0,0,0],[0,0,-50,0],[0,-50,0,0],[0,0,0,-50]])
         
         self.start_time=self.t
         while self.t<self.start_time+run_time:
@@ -57,7 +61,8 @@ class Simulation:
                 """if all particles are stagnant, skip the iteration and fast-foward some time
                 good when particles are really quick and low amounts
                 reduces accuracy, especially if overshooting future events with to big dt['fast_forward']"""
-                #to do: potentially unnecessary as we'll wake them in reset_stagnant_particles
+                self.t+=self.dt['fast_forward']
+                #to do: potentially unnecessary as we'll wake them in reset_stagnant_particles                
                 for particle in self.particles:
                     particle.t=self.t
                 continue 
@@ -181,8 +186,8 @@ class Simulation:
             #raise ValueError("dt['"+timescale+ "'] too short")
             return False
         
-    def _int_time(self, t: Union[int, float]) -> int:
-        if isinstance(t, float):
-            return int(t/self.dt)
+    def _float_time(self, t: Union[int, float]) -> float:
+        if isinstance(t, int):
+            return t*self.structure.dt
         return t
         
