@@ -28,8 +28,9 @@ for i in range(2000//structure.electrode_cycle):
 periods = []
 structure.load_fields()
 #"""
-#structure.run(2000,with_field='nothing',with_arrows=False,electrode_values=values)
-simulation.run(40.0,animate=False,with_field='nothing',with_arrows=True,electrode_values=values)
+#structure.run(10.0,animate=False,with_field='nothing',with_arrows=False,electrode_values=values)
+simulation.run(10.0,animate=True,with_field='nothing',with_arrows=True,electrode_values=values)
+print(structure.get_particles_attr('structure_period'))
 for particle in structure.particles:
     periods.append(particle.structure_period)
 result= np.bincount(np.array(periods)+1)
