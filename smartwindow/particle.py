@@ -2,21 +2,23 @@ from typing import Tuple, List, Callable
 from numbers import Number
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
+
 
 class Particle:
     def __init__(self,
-                 pos: Tuple[float,float] = (0.0,0.0),
-                 #vel: Tuple[float,float] = (0.0,0.0),
-                 acc: Tuple[float,float] = (0.0,0.0),
-                 charge: int = 100,
-                 r: float = 3e-7,
-                 m: float = 3e-9,
-                 c: str = 'r'
-        ):
+        pos: Tuple[float,float] = (0.0,0.0),
+        #vel: Tuple[float,float] = (0.0,0.0),
+        acc: Tuple[float,float] = (0.0,0.0),
+        charge: int = 100,
+        r: float = 3e-7,
+        m: float = 3e-9,
+        c: str = 'r'
+    ):
         self.structure = None
         self.pos = np.array(pos)
         self.structure_period=0
-        #self.vel = np.array(vel)        
+        #self.vel = np.array(vel)
         self.vel_col = np.array([0.0,0.0])
         self.acc = np.array(acc)
         self.charge=charge
@@ -38,7 +40,6 @@ class Particle:
         self.t=self.structure.t
         self.dt=self.structure.dt
         self.stokes_coeff = 6*np.pi*self.structure.viscosity*self.r
-#        print(self.m/self.stokes_coeff)
         
     def update_force(self):
         self.force=np.array([0.0,0.0])
@@ -78,12 +79,17 @@ class Particle:
     """
     @property
     def next_space_time(self):
+        if not self.stagnant:
+            self.last_dx=np.linalg.norm(self.vel*self.dt)
+            #dus als wél stagnant onthoudt die gewoon laatste dx, 
+            #...wat hopelijk klein is want als electrode omdraait is het chaos
         pos=self.pos+self.vel*self.dt
         return np.array([pos[0],pos[1],self.t+self.dt])
             
     def set_space_time(self, event):
-        self.pos=event[1:3]
-        self.t+=event[3]
+        ev=copy.deepcopy(event) #there should be a better way to do this, as this method is a setter...
+        self.pos=ev[1:3]
+        self.t=ev[3]
         
         if self.structure_period==self.structure.period:
             self.color='r'
@@ -92,7 +98,7 @@ class Particle:
         elif self.structure_period>self.structure.period:
             self.color='g'
         
-    def collide(self, wall: str):
+    def collide(self, wall: str,voltage=True):
         if wall=='left':
             #self.pos[0]=self.structure.x-self.r*1.1 
             self.pos[0]+=self.structure.x #perio RVW
@@ -102,13 +108,17 @@ class Particle:
             self.pos[0]-=self.structure.x #perio RVW
             self.structure_period += 1            
         if wall=='bottom':
-            self.pos[1]=self.r*1.1            
-            #self.vel[1]*=-1 #elastisch
-            self.stagnant=True
+            self.pos[1]=self.r*1.1
+            if not voltage:
+                self.vel[1]*=-1 #elastisch
+            else:
+                self.stagnant=True
         if wall=='top':
             self.pos[1]=self.structure.y-self.r*1.1
-            #self.vel[1]*=-1 #elastisch
-            self.stagnant=True
+            if not voltage:
+                self.vel[1]*=-1 #elastisch
+            else:
+                self.stagnant=True
             
     @property
     def real_pos(self):
@@ -120,6 +130,7 @@ class Particle:
         #plt.gca().add_artist(plt.Circle(self.disp_pos, self.r, color=self.color))
         if with_arrows:
             scale=0.01
-            forces=scale*np.array([self.forces['electrostatic'],self.forces['coulomb']])        
-            plt.quiver(self.pos[0],self.pos[1],forces[:,0],forces[:,1],color=['g','b'],width=1e-3)
+            #forces=scale*np.array([self.forces['electrostatic'],self.forces['coulomb'],self.vel*1e-8])
+            forces=scale*np.array([self.forces['electrostatic'],self.forces['coulomb']])
+            plt.quiver(self.pos[0],self.pos[1],forces[:,0],forces[:,1],color=['g','b','r'],width=1e-3)
         plt.gca().add_artist(plt.Circle(self.pos, self.r, color=self.color))
