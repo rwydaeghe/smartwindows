@@ -103,12 +103,12 @@ class Structure:
 
     def load_fields(self):
         print('loading fields')
-        with open('Variables/voltages_small.pkl','rb') as f:
+        with open('Variables/voltages_with_glass.pkl','rb') as f:
             self.V1, self.V2, self.V3, self.V4 = pickle.load(f)
-        with open('Variables/triangulation_small.pkl','rb') as f:
+        with open('Variables/triangulation_with_glass.pkl','rb') as f:
             self.triang_V = pickle.load(f) 
             self.trifinder = self.triang_V.get_trifinder()
-        with open('Variables/point_sources.pkl','rb') as f:
+        with open('Variables/point_sources_with_glass.pkl','rb') as f:
             self.point_sources = pickle.load(f) 
 
     def update_E_electrodes(self, x=[0,0,0,0]):
@@ -128,7 +128,7 @@ class Structure:
             #          self.particles_right.nnz,
             #          self.particles_top.nnz,
             #          self.particles_bottom.nnz)
-            self.V_point_sources += -self.point_sources[i,j]*particle.charge*e/(eps_0*eps_r)
+            self.V_point_sources += -self.point_sources[i,j]*particle.charge*e  # removed epsilon -> is present in point_sources_with_glass
         tci = LinearTriInterpolator(self.triang_V,self.V_point_sources) # faster interpolator, but not as accurate                             
         (Ex, Ey) = tci.gradient(self.triang_V.x,self.triang_V.y)        
         if just_return_dont_update:
