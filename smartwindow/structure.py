@@ -130,35 +130,47 @@ class Structure:
         
         if t%t_c==t_c/4*0:
             self.electrode_config='bottom left'
-            self.update_fields(x1=100)
+            self.update_fields(x1=5)
         if t%t_c==t_c/4*1:
             self.electrode_config='top middle'
-            self.update_fields(x3=100)
+            self.update_fields(x3=5)
         if t%t_c==t_c/4*2:
             self.electrode_config='bottom middle'
-            self.update_fields(x2=100)
+            self.update_fields(x2=5)
         if t%t_c==t_c/4*3:
             self.electrode_config='top right'
-            self.update_fields(x4=100)
+            self.update_fields(x4=5)
+#        if t%t_c==t_c/4*0:
+#            self.electrode_config='bottom left'
+#            self.update_fields(x1=0)
+#        if t%t_c==t_c/4*1:
+#            self.electrode_config='top middle'
+#            self.update_fields(x3=0)
+#        if t%t_c==t_c/4*2:
+#            self.electrode_config='bottom middle'
+#            self.update_fields(x2=0)
+#        if t%t_c==t_c/4*3:
+#            self.electrode_config='top right'
+#            self.update_fields(x4=0)
         
         self.period=t//t_c   
         
     def update_forces(self, particles):
         cst=e**2/(4*np.pi*eps_0*eps_r)
         for particle in self.particles:
-            particle.forces['coulomb']=0
+            particle.forces['coulomb']=np.array([0.0,0.0])
         for i,p1 in enumerate(particles):
-            for _,p2 in enumerate(particles[i+1:]):
-                r=p2.real_pos-p1.real_pos
-                norm_r=np.linalg.norm(r)
-                if norm_r<(p1.r+p2.r):
-                    #collisions
-                    self.collide_particles(p1, p2, r, norm_r)
-                else:
-                    #coulomb force
-                    force=cst*p1.charge*p2.charge/norm_r**3*r
-                    p1.forces['coulomb']+=-force
-                    p2.forces['coulomb']+=force
+#            for _,p2 in enumerate(particles[i+1:]):
+#                r=p2.real_pos-p1.real_pos
+#                norm_r=np.linalg.norm(r)
+#                if norm_r<(p1.r+p2.r):
+#                    #collisions
+#                    self.collide_particles(p1, p2, r, norm_r)
+#                else:
+#                    #coulomb force
+#                    force=cst*p1.charge*p2.charge/norm_r**3*r
+#                    p1.forces['coulomb']+=-force
+#                    p2.forces['coulomb']+=force
             #electrostatic force
             #self.E=self.E_electrodes+self.E_point_sources
             p1.forces['electrostatic']=p1.charge*e*self.get_E(p1.pos)

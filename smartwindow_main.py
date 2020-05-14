@@ -12,7 +12,7 @@ print('adding particles')
 #structure.add_gaussian_particle_cloud(N=50, avg_pos=(1e-5,2.5e-5), var_pos=(1e-5,1e-5))        
 #structure.add_gaussian_particle_cloud(N=50, avg_pos=(10e-5,2.5e-5), var_pos=(1e-5,1e-5), avg_charge=-100)
 
-structure.add_gaussian_particle_cloud(N=50, avg_pos=(10e-5,2.5e-5), var_pos=(1e-5,1e-5))
+structure.add_gaussian_particle_cloud(N=50, avg_pos=(10e-5,2.5e-5), var_pos=(1e-5,1e-5), avg_charge = -100)
 
 #structure.add_particle(Particle(pos = (10e-5-1e-5,2.25e-5), charge = 50, r = 5e-7))
 #structure.add_particle(Particle(pos = (11e-5,3.5e-5), charge = 50, r = 5e-7,c='b'))
@@ -21,7 +21,7 @@ structure.add_gaussian_particle_cloud(N=50, avg_pos=(10e-5,2.5e-5), var_pos=(1e-
 #structure.add_particle(Particle(pos = (1e-5,0.5e-5), vel=(-1e-5,-1e-5), charge = 50, r = 5e-7,c='g'))
 
 structure.load_fields()
-structure.run(600,with_field='nothing',with_arrows=True)
+structure.run(600,with_field='nothing',with_arrows=False)
 
 #simulation=Simulation(structure)
 #simulation.run(600*1e-1)
