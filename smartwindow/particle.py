@@ -31,8 +31,9 @@ class Particle:
         self.stagnant=False
         
         self.force = self.m*self.acc
-        self.forces = {'electrostatic': np.array([0.0,0.0]), 
-                       'coulomb':       np.array([0.0,0.0]), 
+        self.forces = {'electrostatic': np.array([0.0,0.0]),
+                       'PM':            np.array([0.0,0.0]),
+                       'PP':            np.array([0.0,0.0]),                       
                        'stokes':        np.array([0.0,0.0])}
         
     def _register_structure(self, structure):
@@ -66,7 +67,7 @@ class Particle:
         if self.stagnant:
             return np.array([0.0,0.0])
         else:            
-            return (self.forces['electrostatic']+self.forces['coulomb'])/self.stokes_coeff
+            return (self.forces['electrostatic']+self.forces['PM']+self.forces['PP'])/self.stokes_coeff
     
     """
     @property
@@ -123,6 +124,9 @@ class Particle:
     @property
     def real_pos(self):
         return np.array([self.pos[0]+self.structure.x*self.structure_period,self.pos[1]])
+    
+    def __eq__(self, other):
+        return self.pos == other.pos
         
     def visualize(self, with_arrows: bool=False):
         #self.disp_pos=self.pos
@@ -130,7 +134,7 @@ class Particle:
         #plt.gca().add_artist(plt.Circle(self.disp_pos, self.r, color=self.color))
         if with_arrows:
             scale=0.01
-            #forces=scale*np.array([self.forces['electrostatic'],self.forces['coulomb'],self.vel*1e-8])
-            forces=scale*np.array([self.forces['electrostatic'],self.forces['coulomb']])
+            #forces=scale*np.array([self.forces['electrostatic'],self.forces['PP'],self.vel*1e-8])
+            forces=scale*np.array([self.forces['electrostatic'],self.forces['PP'],self.forces['PM']])
             plt.quiver(self.pos[0],self.pos[1],forces[:,0],forces[:,1],color=['g','b','r'],width=1e-3)
-        plt.gca().add_artist(plt.Circle(self.pos, self.r, color=self.color))
+        plt.gca().add_artist(plt.Circle(self.pos, self.r, color=self.color, fill=False))
