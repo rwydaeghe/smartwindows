@@ -125,15 +125,6 @@ plt.colorbar(c)
 ## making triangulation
 #triang = Triangulation(x,y,t)
 
-# computing gradient
-#tci1 = CubicTriInterpolator(triang, -z1)
-#tci2 = CubicTriInterpolator(triang, -z2)
-#tci3 = CubicTriInterpolator(triang, -z3)
-#tci4 = CubicTriInterpolator(triang, -z4)
-#(Ex1, Ey1) = tci1.gradient(x,y)
-#(Ex2, Ey2) = tci2.gradient(x,y)
-#(Ex3, Ey3) = tci3.gradient(x,y)
-#(Ex4, Ey4) = tci4.gradient(x,y)
 
 
 # saving variables as pickle file
